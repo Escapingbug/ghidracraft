@@ -20,40 +20,45 @@ import com.oracle.truffle.api.Truffle;
 import com.oracle.truffle.api.TruffleRuntime;
 
 import ghidra.app.plugin.processors.sleigh.SleighLanguage;
+import ghidra.pcode.emulate.AbstractEmulate;
+import ghidra.pcode.emulate.BreakTable;
 import ghidra.pcode.memstate.MemoryState;
-import ghidra.pcode.memstate.UniqueMemoryBank;
 import ghidra.program.model.address.Address;
 
-public class JitEmulate {
+public class GraalEmulate extends AbstractEmulate {
 
-    private SleighLanguage sleighLang;
-    private MemoryState state;
     private TruffleRuntime runtime;
     private PcodeOpContext context;
-    private UniqueMemoryBank uniqueBank;
 
-    public JitEmulate(SleighLanguage sleighLang, MemoryState state) {
-        this.sleighLang = sleighLang;
-        this.state = state;
-        this.context = new PcodeOpContext(sleighLang, state);
+    public GraalEmulate(SleighLanguage language, MemoryState memState, BreakTable breakTable) {
+        super(language, memState, breakTable);
+        this.context = new PcodeOpContext(language, memState, null);
         this.runtime = Truffle.getRuntime();
-
-        uniqueBank =
-            new UniqueMemoryBank(
-                sleighLang.getAddressFactory().getUniqueSpace(),
-                sleighLang.isBigEndian());
-        state.setMemoryBank(uniqueBank);
     }
 
-    public JitEmulate(PcodeOpContext context) {
+    public GraalEmulate(PcodeOpContext context, BreakTable breakTable) {
+        super(context.getSleighLanguage(), context.getMemoryState(), breakTable);
         this.context = context;
-        this.sleighLang = context.getSleighLanguage();
-        this.state = context.getMemoryState();
         this.runtime = Truffle.getRuntime();
+    }
+
+    @Override
+    public void setExecuteAddress(Address address) {
+        this.context.setCurrentAddress(address);
+    }
+
+    @Override
+    public Address getExecuteAddress() {
+        return this.context.getCurrentAddress();
+    }
+
+    public void run() {
+        CallTarget target = runtime.createCallTarget(new PcodeOpRootNode(null, getLanguage(), context));
+        target.call();
     }
 
     public void run(Address entry) {
-        CallTarget target = runtime.createCallTarget(new PcodeOpRootNode(null, sleighLang, entry, context));
-        target.call();
+        setExecuteAddress(entry);
+        run();
     }
 }

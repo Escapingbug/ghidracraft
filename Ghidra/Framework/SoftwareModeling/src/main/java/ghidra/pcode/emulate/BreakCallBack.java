@@ -30,7 +30,7 @@ import ghidra.program.model.address.Address;
 /// depending on whether the breakpoint is tailored for a particular pcode op or for
 /// a machine address.
 public class BreakCallBack {
-	protected Emulate emulate;		///< The emulator currently associated with this breakpoint
+	protected AbstractEmulate emulate;		///< The emulator currently associated with this breakpoint
 
 	public BreakCallBack() {		///< Generic breakpoint constructor
 		emulate = null;
@@ -54,10 +54,11 @@ public class BreakCallBack {
 	/// executed normally.
 	/// \param addr is the address where the break has occurred
 	/// \return \b true if the machine instruction should not be executed
-  public boolean addressCallback(Address addr) { ///< Call back method for address based breakpoints
-	  return false;
-  }
-  public void setEmulate(Emulate emu) { ///< Associate a particular emulator with this breakpoint
-	  emulate = emu;
-  }
+	public boolean addressCallback(Address addr) { /// < Call back method for address based breakpoints
+		return false;
+	}
+
+	public void setEmulate(AbstractEmulate emu) { /// < Associate a particular emulator with this breakpoint
+		emulate = emu;
+	}
 }

@@ -17,13 +17,17 @@ package ghidra.pcode.pcodetruffle;
 
 import com.oracle.truffle.api.instrumentation.ProvidedTags;
 import com.oracle.truffle.api.instrumentation.StandardTags;
+import com.oracle.truffle.api.instrumentation.Tag;
+import com.oracle.truffle.api.instrumentation.Tag.Identifier;
 
 import ghidra.app.plugin.processors.sleigh.SleighLanguage;
 import ghidra.pcode.memstate.MemoryState;
+import ghidra.pcode.pcodetruffle.PcodeOpLanguage.BlockTag;
+import ghidra.pcode.pcodetruffle.PcodeOpLanguage.FuncTag;
 
 import com.oracle.truffle.api.TruffleLanguage;
 
-@ProvidedTags({ StandardTags.StatementTag.class })
+@ProvidedTags({ StandardTags.StatementTag.class, BlockTag.class, FuncTag.class })
 @TruffleLanguage.Registration(
     id = PcodeOpLanguage.ID,
     name = "PcodeOp",
@@ -35,8 +39,18 @@ public class PcodeOpLanguage extends TruffleLanguage<PcodeOpContext> {
     public static final String ID = "pcode";
     public static final String MIME_TYPE = "application/x-pcode";
 
+    public static final Class<? extends Tag> STATEMENT = StandardTags.StatementTag.class;
+    public static final Class<? extends Tag> BLOCK = BlockTag.class;
+    public static final Class<? extends Tag> FUNC = FuncTag.class;
+
     private static MemoryState state;
     private static SleighLanguage lang;
+
+    @Identifier("BLOCK")
+    static class BlockTag extends Tag {}
+
+    @Identifier("FUNC")
+    static class FuncTag extends Tag {}
 
     public static void setMmeoryState(MemoryState state) {
         PcodeOpLanguage.state = state;

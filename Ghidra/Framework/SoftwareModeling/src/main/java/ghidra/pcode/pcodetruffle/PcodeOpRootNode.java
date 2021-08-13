@@ -35,12 +35,10 @@ import ghidra.program.model.address.AddressSpace;
 import ghidra.program.model.lang.InstructionBlock;
 import ghidra.program.model.lang.Register;
 import ghidra.program.model.pcode.PcodeOp;
-import ghidra.util.Msg;
 import ghidra.util.task.TaskMonitorAdapter;
 
 public class PcodeOpRootNode extends RootNode {
 
-    private Address currentAddress;
     private Disassembler disassembler;
     private Register pcRegister;
     private SleighLanguage lang;
@@ -51,7 +49,7 @@ public class PcodeOpRootNode extends RootNode {
     private PcodeOpContext context;
 
 
-    public PcodeOpRootNode(PcodeOpLanguage pcodeOpLanguage, SleighLanguage lang, Address entry, PcodeOpContext context) {
+    public PcodeOpRootNode(PcodeOpLanguage pcodeOpLanguage, SleighLanguage lang, PcodeOpContext context) {
         super(pcodeOpLanguage);
         this.context = context;
         this.pcodeOpLanguage = pcodeOpLanguage;
@@ -61,12 +59,11 @@ public class PcodeOpRootNode extends RootNode {
         this.blocks = getContext().getBlockCache();
         this.disassembler = Disassembler.getDisassembler(lang, addrFactory, TaskMonitorAdapter.DUMMY, null);
         this.lang = lang;
-        this.currentAddress = entry;
         this.pcRegister = lang.getProgramCounter();
     }
 
-    public PcodeOpRootNode(PcodeOpLanguage pcodeOpLanguage, SleighLanguage lang, Address entry) {
-        this(pcodeOpLanguage, lang, entry, null);
+    public PcodeOpRootNode(PcodeOpLanguage pcodeOpLanguage, SleighLanguage lang) {
+        this(pcodeOpLanguage, lang, null);
     }
 
     private PcodeOpContext getContext() {
@@ -92,7 +89,8 @@ public class PcodeOpRootNode extends RootNode {
     }
 
     private void setCurrentAddress(Address addr) {
-        currentAddress = addr;
+        this.context.setCurrentAddress(addr);
+        Address currentAddress = this.context.getCurrentAddress();
         state.setValue(pcRegister, currentAddress.getAddressableWordOffset());
     }
 
@@ -107,11 +105,11 @@ public class PcodeOpRootNode extends RootNode {
 
     private void doCall(Address targetAddr) {
         try {
+            this.context.setCurrentAddress(targetAddr);
             CallTarget target = Truffle.getRuntime()
                     .createCallTarget(new PcodeOpRootNode(
                         pcodeOpLanguage,
                         lang,
-                        targetAddr,
                         context));
 
             target.call();
@@ -147,6 +145,7 @@ public class PcodeOpRootNode extends RootNode {
     @Override
     public Object execute(VirtualFrame frame) {
         while (true) {
+            Address currentAddress = this.context.getCurrentAddress();
             PcodeOpBlockNode block = blocks.get(currentAddress);
             if (block == null) {
                 block = newBlockNode(currentAddress);

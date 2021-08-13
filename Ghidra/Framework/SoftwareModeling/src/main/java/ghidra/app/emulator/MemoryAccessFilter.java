@@ -22,7 +22,7 @@ public abstract class MemoryAccessFilter {
 	private MemoryAccessFilter prevFilter;
 	private MemoryAccessFilter nextFilter;
 	
-	protected Emulator emu;
+	protected AbstractEmulator emu;
 	
 	private boolean filterOnExecutionOnly = true;
 	
@@ -46,7 +46,7 @@ public abstract class MemoryAccessFilter {
 
 	protected abstract void processWrite(AddressSpace spc, long off, int size, byte[] values);
 
-	final void addFilter(Emulator emu) {
+	final void addFilter(AbstractEmulator emu) {
 		this.emu = emu;
 		nextFilter = emu.getFilteredMemState().setFilter(this);
 		if (nextFilter != null) {

@@ -19,6 +19,7 @@ import java.math.BigInteger;
 
 import com.oracle.truffle.api.frame.VirtualFrame;
 
+import ghidra.program.model.address.Address;
 import ghidra.program.model.pcode.PcodeOp;
 import ghidra.program.model.pcode.Varnode;
 
@@ -66,6 +67,11 @@ public class PcodeOpBranchNode extends PcodeOpNode {
                 throw new PcodeOpBranchException(pcodeOp);
             }
         }
+    }
+
+    @Override
+    public Address getAddress() {
+        return this.pcodeOp.getSeqnum().getTarget();
     }
     
 }

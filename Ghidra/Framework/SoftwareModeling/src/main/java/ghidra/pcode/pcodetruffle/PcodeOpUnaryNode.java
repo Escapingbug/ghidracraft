@@ -20,6 +20,7 @@ import java.math.BigInteger;
 import com.oracle.truffle.api.frame.VirtualFrame;
 
 import ghidra.pcode.opbehavior.UnaryOpBehavior;
+import ghidra.program.model.address.Address;
 import ghidra.program.model.pcode.PcodeOp;
 import ghidra.program.model.pcode.Varnode;
 
@@ -51,5 +52,10 @@ public class PcodeOpUnaryNode extends PcodeOpNode {
             long out = behavior.evaluateUnary(vOut.getSize(), vIn.getSize(), in);
             state.setValue(vOut, out);
         }
+    }
+
+    @Override
+    public Address getAddress() {
+        return this.pcodeOp.getSeqnum().getTarget();
     }
 }

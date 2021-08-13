@@ -19,6 +19,7 @@ import java.math.BigInteger;
 
 import com.oracle.truffle.api.frame.VirtualFrame;
 
+import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressSpace;
 import ghidra.program.model.pcode.PcodeOp;
 import ghidra.program.model.pcode.Varnode;
@@ -54,5 +55,10 @@ public class PcodeOpLoadNode extends PcodeOpNode {
 			long res = state.getValue(space, byteOffset, pcodeOp.getOutput().getSize());
 			state.setValue(pcodeOp.getOutput(), res);
 		}
+    }
+
+    @Override
+    public Address getAddress() {
+        return this.pcodeOp.getSeqnum().getTarget();
     }
 }

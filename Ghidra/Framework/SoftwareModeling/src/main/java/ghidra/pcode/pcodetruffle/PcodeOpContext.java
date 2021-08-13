@@ -20,6 +20,7 @@ import java.util.HashMap;
 import com.oracle.truffle.api.TruffleLanguage;
 
 import ghidra.app.plugin.processors.sleigh.SleighLanguage;
+import ghidra.pcode.emulate.EmulateInstructionStateModifier;
 import ghidra.pcode.memstate.MemoryState;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressFactory;
@@ -30,27 +31,42 @@ public class PcodeOpContext {
     private final AddressFactory addrFactory;
     private final MemoryState memoryState;
     private final SleighLanguage sleighLang;
-    private HashMap<Address, PcodeOpBlockNode> blockCache = new HashMap<Address, PcodeOpBlockNode>();
+    private final EmulateInstructionStateModifier instructionStateModifier;
 
-    public PcodeOpContext(final SleighLanguage sleighLang, final MemoryState memoryState) {
-        this(null, null, sleighLang, memoryState);
+    private HashMap<Address, PcodeOpBlockNode> blockCache = new HashMap<Address, PcodeOpBlockNode>();
+    private Address currentAddress;
+    private boolean halt = false;
+
+    public PcodeOpContext(
+        final SleighLanguage sleighLang,
+        final MemoryState memoryState,
+        Address curAddress,
+        final EmulateInstructionStateModifier instructionStateModifier) {
+        this(null, null, sleighLang, memoryState, instructionStateModifier);
+        this.currentAddress = curAddress;
     }
 
     public PcodeOpContext(
         final PcodeOpLanguage language,
         final TruffleLanguage.Env env,
         final SleighLanguage sleighLang,
-        final MemoryState memoryState
+        final MemoryState memoryState,
+        final EmulateInstructionStateModifier instructionStateModifier
     ) {
         this.sleighLang = sleighLang;
         this.env = env;
         this.language = language;
         this.addrFactory = sleighLang.getAddressFactory();
         this.memoryState = memoryState;
+        this.instructionStateModifier = instructionStateModifier;
     }
 
     protected SleighLanguage getSleighLanguage() {
         return this.sleighLang;
+    }
+
+    public EmulateInstructionStateModifier getInstructionStateModifier() {
+        return this.instructionStateModifier;
     }
 
     public HashMap<Address, PcodeOpBlockNode> getBlockCache() {
@@ -71,5 +87,21 @@ public class PcodeOpContext {
 
     public MemoryState getMemoryState() {
         return this.memoryState;
+    }
+
+    public Address getCurrentAddress() {
+        return this.currentAddress;
+    }
+
+    public void setCurrentAddress(Address curAddress) {
+        this.currentAddress = curAddress;
+    }
+
+    public boolean getHalt() {
+        return halt;
+    }
+
+    public void setHalt(boolean halt) {
+        this.halt = halt;
     }
 }

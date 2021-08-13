@@ -41,22 +41,16 @@ import ghidra.util.task.TaskMonitorAdapter;
 /// as the execution address is set, either explicitly, or via branches and fallthrus.  There
 /// are additional methods for inspecting the pcode ops in the current instruction as a sequence.
 
-public class Emulate {
+public class Emulate extends AbstractEmulate {
 
-	private MemoryState memstate; // the memory state of the emulator.
-	private UniqueMemoryBank uniqueBank;
-
-	private BreakTable breaktable; ///< The table of breakpoints
-	private Address current_address; ///< Address of current instruction being executed
-	private Address last_execute_address;
+	private Address currentAddress; ///< Address of current instruction being executed
+	private Address lastExecuteAddress;
 	private volatile EmulateExecutionState executionState = EmulateExecutionState.STOPPED;
 	private RuntimeException faultCause;
-	private int current_op; ///< Index of current pcode op within machine instruction
-	private int last_op; /// index of last pcode op executed
-	private int instruction_length; ///< Length of current instruction in bytes (must include any delay slots)
+	private int currentOp; ///< Index of current pcode op within machine instruction
+	private int lastOp; /// index of last pcode op executed
+	private int instructionLength; ///< Length of current instruction in bytes (must include any delay slots)
 
-	private final SleighLanguage language;
-	private final AddressFactory addrFactory;
 	private Register pcReg;
 
 	private InstructionBlock lastPseudoInstructionBlock;
@@ -73,65 +67,21 @@ public class Emulate {
 	/// \param t is the SLEIGH translator
 	/// \param s is the MemoryState the emulator should manipulate
 	/// \param b is the table of breakpoints the emulator should invoke
-	public Emulate(SleighLanguage lang, MemoryState s, BreakTable b) {
-		memstate = s;
-		this.language = lang;
-		this.addrFactory = lang.getAddressFactory();
-		pcReg = lang.getProgramCounter();
-		breaktable = b;
-		breaktable.setEmulate(this);
+	public Emulate(SleighLanguage language, MemoryState memState, BreakTable breakTable) {
+		super(language, memState, breakTable);
+		pcReg = language.getProgramCounter();
+		breakTable.setEmulate(this);
 		memBuffer =
-			new EmulateMemoryStateBuffer(s, addrFactory.getDefaultAddressSpace().getMinAddress());
-
-		uniqueBank =
-			new UniqueMemoryBank(lang.getAddressFactory().getUniqueSpace(), lang.isBigEndian());
-		memstate.setMemoryBank(uniqueBank);
+			new EmulateMemoryStateBuffer(memState, getAddrFactory().getDefaultAddressSpace().getMinAddress());
 
 //		emitterContext = new EmulateDisassemblerContext(lang, s);
 
 		pseudoDisassembler =
-			Disassembler.getDisassembler(lang, addrFactory, TaskMonitorAdapter.DUMMY_MONITOR, null);
-
-		initInstuctionStateModifier();
+			Disassembler.getDisassembler(language, getAddrFactory(), TaskMonitorAdapter.DUMMY_MONITOR, null);
 	}
 
 	public void dispose() {
 		executionState = EmulateExecutionState.STOPPED;
-	}
-
-	@SuppressWarnings("unchecked")
-	private void initInstuctionStateModifier() {
-		String classname = language.getProperty(
-			GhidraLanguagePropertyKeys.EMULATE_INSTRUCTION_STATE_MODIFIER_CLASS);
-		if (classname == null) {
-			return;
-		}
-		try {
-			Class<?> c = Class.forName(classname);
-			if (!EmulateInstructionStateModifier.class.isAssignableFrom(c)) {
-				Msg.error(this,
-					"Language " + language.getLanguageID() + " does not specify a valid " +
-						GhidraLanguagePropertyKeys.EMULATE_INSTRUCTION_STATE_MODIFIER_CLASS);
-				throw new RuntimeException(classname + " does not implement interface " +
-					EmulateInstructionStateModifier.class.getName());
-			}
-			Class<? extends EmulateInstructionStateModifier> instructionStateModifierClass =
-				(Class<? extends EmulateInstructionStateModifier>) c;
-			Constructor<? extends EmulateInstructionStateModifier> constructor =
-				instructionStateModifierClass.getConstructor(Emulate.class);
-			instructionStateModifier = constructor.newInstance(this);
-		}
-		catch (Exception e) {
-			Msg.error(this, "Language " + language.getLanguageID() + " does not specify a valid " +
-				GhidraLanguagePropertyKeys.EMULATE_INSTRUCTION_STATE_MODIFIER_CLASS);
-			throw new RuntimeException(
-				"Failed to instantiate " + classname + " for language " + language.getLanguageID(),
-				e);
-		}
-	}
-
-	public Language getLanguage() {
-		return language;
 	}
 
 	/// Since the emulator can single step through individual pcode operations, the machine state
@@ -152,17 +102,18 @@ public class Emulate {
 	}
 
 	/// \return the currently executing machine address
+	@Override
 	public Address getExecuteAddress() {
-		return current_address;
+		return currentAddress;
 	}
 
 	/// \return the last address 
 	public Address getLastExecuteAddress() {
-		return last_execute_address;
+		return lastExecuteAddress;
 	}
 
 	public EmulateDisassemblerContext getNewDisassemblerContext() {
-		return new EmulateDisassemblerContext(language, getContextRegisterValue());
+		return new EmulateDisassemblerContext(getLanguage(), getContextRegisterValue());
 	}
 
 	/**
@@ -204,7 +155,7 @@ public class Emulate {
 		if (lastPseudoInstructionBlock != null) {
 			pseudoInstruction = lastPseudoInstructionBlock.getInstructionAt(addr);
 			if (pseudoInstruction != null) {
-				instruction_length = getInstructionLength(pseudoInstruction);
+				instructionLength = getInstructionLength(pseudoInstruction);
 				return pseudoInstruction.getPcode(false);
 			}
 
@@ -221,7 +172,7 @@ public class Emulate {
 		if (lastPseudoInstructionBlock != null) {
 			pseudoInstruction = lastPseudoInstructionBlock.getInstructionAt(addr);
 			if (pseudoInstruction != null) {
-				instruction_length = getInstructionLength(pseudoInstruction);
+				instructionLength = getInstructionLength(pseudoInstruction);
 				return pseudoInstruction.getPcode(false);
 			}
 			InstructionError error = lastPseudoInstructionBlock.getInstructionConflict();
@@ -244,7 +195,7 @@ public class Emulate {
 	 * not been set.
 	 */
 	public RegisterValue getContextRegisterValue() {
-		Register contextReg = language.getContextBaseRegister();
+		Register contextReg = getLanguage().getContextBaseRegister();
 		if (contextReg == null) {
 			return null;
 		}
@@ -282,7 +233,7 @@ public class Emulate {
 					regValue = nextContextRegisterValue.combineValues(regValue);
 				}
 			}
-			if (!reg.equals(language.getContextBaseRegister())) {
+			if (!reg.equals(getLanguage().getContextBaseRegister())) {
 				throw new IllegalArgumentException("invalid processor context register");
 			}
 		}
@@ -294,10 +245,10 @@ public class Emulate {
 	/// Update the iterator into the current pcode cache, and if necessary, generate
 	/// the pcode for the fallthru instruction and reset the iterator.
 	public void fallthruOp() {
-		current_op += 1;
-		if (current_op >= pcode.length) {
-			last_op = -1;
-			setCurrentAddress(current_address.addWrap(instruction_length));
+		currentOp += 1;
+		if (currentOp >= pcode.length) {
+			lastOp = -1;
+			setCurrentAddress(currentAddress.addWrap(instructionLength));
 		}
 	}
 
@@ -305,10 +256,10 @@ public class Emulate {
 		Varnode condVar = op.getInput(1);
 		boolean takeBranch = false;
 		if (condVar.getSize() > 8) {
-			takeBranch = !memstate.getBigInteger(condVar, false).equals(BigInteger.ZERO);
+			takeBranch = !getMemoryState().getBigInteger(condVar, false).equals(BigInteger.ZERO);
 		}
 		else {
-			takeBranch = memstate.getValue(condVar) != 0;
+			takeBranch = getMemoryState().getValue(condVar) != 0;
 		}
 		if (takeBranch) {
 			executeBranch(op);
@@ -324,12 +275,12 @@ public class Emulate {
 		Address destaddr = op.getInput(0).getAddress();
 		if (destaddr.getAddressSpace().isConstantSpace()) {
 			long id = destaddr.getOffset();
-			id = id + current_op;
-			current_op = (int) id;
-			if (current_op == pcode.length) {
+			id = id + currentOp;
+			currentOp = (int) id;
+			if (currentOp == pcode.length) {
 				fallthruOp();
 			}
-			else if ((current_op < 0) || (current_op >= pcode.length)) {
+			else if ((currentOp < 0) || (currentOp >= pcode.length)) {
 				throw new LowlevelError("Bad intra-instruction branch");
 			}
 		}
@@ -344,9 +295,9 @@ public class Emulate {
 	/// \param op is the particular user-defined op being executed
 	public void executeCallother(PcodeOpRaw op) throws UnimplementedCallOtherException {
 		if ((instructionStateModifier == null || !instructionStateModifier.executeCallOther(op)) &&
-			!breaktable.doPcodeOpBreak(op)) {
+			!getBreaktable().doPcodeOpBreak(op)) {
 			int userOp = (int) op.getInput(0).getOffset();
-			String pcodeOpName = language.getUserDefinedOpName(userOp);
+			String pcodeOpName = getLanguage().getUserDefinedOpName(userOp);
 			throw new UnimplementedCallOtherException(op, pcodeOpName);
 		}
 		fallthruOp();
@@ -355,17 +306,18 @@ public class Emulate {
 	/// Set the current execution address and cache the pcode translation of the machine instruction
 	/// at that address
 	/// \param addr is the address where execution should continue
+	@Override
 	public void setExecuteAddress(Address addr) {
-		if (addr != null && addr.equals(current_address)) {
+		if (addr != null && addr.equals(currentAddress)) {
 			return;
 		}
-		last_execute_address = null;
+		lastExecuteAddress = null;
 		setCurrentAddress(addr);
 	}
 
 	private void setCurrentAddress(Address addr) {
-		current_address = addr;
-		memstate.setValue(pcReg, current_address.getAddressableWordOffset());
+		currentAddress = addr;
+		getMemoryState().setValue(pcReg, currentAddress.getAddressableWordOffset());
 		executionState = EmulateExecutionState.STOPPED;
 		faultCause = null;
 	}
@@ -378,11 +330,11 @@ public class Emulate {
 	public void executeInstruction(boolean stopAtBreakpoint, TaskMonitor monitor)
 			throws CancelledException, LowlevelError, InstructionDecodeException {
 		if (executionState == EmulateExecutionState.STOPPED) {
-			if (last_execute_address == null && instructionStateModifier != null) {
-				instructionStateModifier.initialExecuteCallback(this, current_address,
+			if (lastExecuteAddress == null && instructionStateModifier != null) {
+				instructionStateModifier.initialExecuteCallback(this, currentAddress,
 					nextContextRegisterValue);
 			}
-			if (breaktable.doAddressBreak(current_address) && stopAtBreakpoint) {
+			if (getBreaktable().doAddressBreak(currentAddress) && stopAtBreakpoint) {
 				executionState = EmulateExecutionState.BREAKPOINT;
 				return;
 			}
@@ -397,15 +349,15 @@ public class Emulate {
 		}
 		try {
 			executionState = EmulateExecutionState.INSTRUCTION_DECODE;
-			if (language.numSections() == 0) {
-				uniqueBank.clear(); // OK to clear if named sections and crossbuilds do not exist in language
+			if (getLanguage().numSections() == 0) {
+				getUniqueBank().clear(); // OK to clear if named sections and crossbuilds do not exist in language
 			}
-			pcode = emitPcode(current_address);
-			last_execute_address = current_address;
-			current_op = 0;
+			pcode = emitPcode(currentAddress);
+			lastExecuteAddress = currentAddress;
+			currentOp = 0;
 			if (pcode == null) {
 				throw new InstructionDecodeException("Unexpected instruction pcode error",
-					current_address);
+					currentAddress);
 			}
 			executionState = EmulateExecutionState.EXECUTE;
 			do {
@@ -414,8 +366,8 @@ public class Emulate {
 			}
 			while (executionState == EmulateExecutionState.EXECUTE);
 			if (instructionStateModifier != null) {
-				instructionStateModifier.postExecuteCallback(this, last_execute_address, pcode,
-					last_op, current_address);
+				instructionStateModifier.postExecuteCallback(this, lastExecuteAddress, pcode,
+					lastOp, currentAddress);
 			}
 		}
 		catch (RuntimeException e) {
@@ -425,25 +377,20 @@ public class Emulate {
 		}
 	}
 
-	/// \return the memory state object which this emulator uses
-	public MemoryState getMemoryState() {
-		return memstate;
-	}
-
 	/// This method executes a single pcode operation, the current one (returned by getCurrentOp()).
 	/// The MemoryState of the emulator is queried and changed as needed to accomplish this.
 	private void executeCurrentOp() throws LowlevelError {
 
-		if (current_op >= pcode.length) {
+		if (currentOp >= pcode.length) {
 			fallthruOp();
 			return;
 		}
 
-		last_op = current_op;
+		lastOp = currentOp;
 
-		PcodeOp op = pcode[current_op];
+		PcodeOp op = pcode[currentOp];
 		if (op.getOpcode() == PcodeOp.UNIMPLEMENTED) {
-			throw new UnimplementedInstructionException(current_address);
+			throw new UnimplementedInstructionException(currentAddress);
 		}
 
 		PcodeOpRaw raw = new PcodeOpRaw(op);
@@ -459,16 +406,16 @@ public class Emulate {
 			Varnode in1var = op.getInput(0);
 			Varnode outvar = op.getOutput();
 			if (in1var.getSize() > 8 || outvar.getSize() > 8) {
-				BigInteger in1 = memstate.getBigInteger(op.getInput(0), false);
+				BigInteger in1 = getMemoryState().getBigInteger(op.getInput(0), false);
 				BigInteger out = unaryBehave.evaluateUnary(op.getOutput().getSize(),
 					op.getInput(0).getSize(), in1);
-				memstate.setValue(op.getOutput(), out);
+				getMemoryState().setValue(op.getOutput(), out);
 			}
 			else {
-				long in1 = memstate.getValue(op.getInput(0));
+				long in1 = getMemoryState().getValue(op.getInput(0));
 				long out = unaryBehave.evaluateUnary(op.getOutput().getSize(),
 					op.getInput(0).getSize(), in1);
-				memstate.setValue(op.getOutput(), out);
+				getMemoryState().setValue(op.getOutput(), out);
 			}
 			fallthruOp();
 		}
@@ -478,18 +425,18 @@ public class Emulate {
 			Varnode in2var = op.getInput(1);
 			Varnode outvar = op.getOutput();
 			if (in1var.getSize() > 8 || in2var.getSize() > 8 || outvar.getSize() > 8) {
-				BigInteger in1 = memstate.getBigInteger(op.getInput(0), false);
-				BigInteger in2 = memstate.getBigInteger(op.getInput(1), false);
+				BigInteger in1 = getMemoryState().getBigInteger(op.getInput(0), false);
+				BigInteger in2 = getMemoryState().getBigInteger(op.getInput(1), false);
 				BigInteger out = binaryBehave.evaluateBinary(outvar.getSize(),
 					op.getInput(0).getSize(), in1, in2);
-				memstate.setValue(outvar, out);
+				getMemoryState().setValue(outvar, out);
 			}
 			else {
-				long in1 = memstate.getValue(op.getInput(0));
-				long in2 = memstate.getValue(op.getInput(1));
+				long in1 = getMemoryState().getValue(op.getInput(0));
+				long in2 = getMemoryState().getValue(op.getInput(1));
 				long out = binaryBehave.evaluateBinary(outvar.getSize(), op.getInput(0).getSize(),
 					in1, in2);
-				memstate.setValue(outvar, out);
+				getMemoryState().setValue(outvar, out);
 			}
 			fallthruOp(); // All binary ops are fallthrus
 		}
@@ -543,21 +490,21 @@ public class Emulate {
 	public void executeLoad(PcodeOpRaw op) {
 
 		AddressSpace space =
-			addrFactory.getAddressSpace((int) op.getInput(0).getAddress().getOffset()); // Space to read from
+			getAddrFactory().getAddressSpace((int) op.getInput(0).getAddress().getOffset()); // Space to read from
 
-		long offset = memstate.getValue(op.getInput(1)); // Offset to read from
+		long offset = getMemoryState().getValue(op.getInput(1)); // Offset to read from
 		long byteOffset =
 			space.truncateAddressableWordOffset(offset) * space.getAddressableUnitSize();
 
 		Varnode outvar = op.getOutput();
 		if (outvar.getSize() > 8) {
 			BigInteger res =
-				memstate.getBigInteger(space, byteOffset, op.getOutput().getSize(), false);
-			memstate.setValue(outvar, res);
+				getMemoryState().getBigInteger(space, byteOffset, op.getOutput().getSize(), false);
+			getMemoryState().setValue(outvar, res);
 		}
 		else {
-			long res = memstate.getValue(space, byteOffset, op.getOutput().getSize());
-			memstate.setValue(op.getOutput(), res);
+			long res = getMemoryState().getValue(space, byteOffset, op.getOutput().getSize());
+			getMemoryState().setValue(op.getOutput(), res);
 		}
 	}
 
@@ -566,27 +513,27 @@ public class Emulate {
 	public void executeStore(PcodeOpRaw op) {
 
 		AddressSpace space =
-			addrFactory.getAddressSpace((int) op.getInput(0).getAddress().getOffset()); // Space to store in
+			getAddrFactory().getAddressSpace((int) op.getInput(0).getAddress().getOffset()); // Space to store in
 
-		long offset = memstate.getValue(op.getInput(1)); // Offset to store at
+		long offset = getMemoryState().getValue(op.getInput(1)); // Offset to store at
 		long byteOffset =
 			space.truncateAddressableWordOffset(offset) * space.getAddressableUnitSize();
 
 		Varnode storedVar = op.getInput(2); // Value being stored
 		if (storedVar.getSize() > 8) {
-			BigInteger val = memstate.getBigInteger(storedVar, false);
-			memstate.setValue(space, byteOffset, op.getInput(2).getSize(), val);
+			BigInteger val = getMemoryState().getBigInteger(storedVar, false);
+			getMemoryState().setValue(space, byteOffset, op.getInput(2).getSize(), val);
 		}
 		else {
-			long val = memstate.getValue(storedVar);
-			memstate.setValue(space, byteOffset, op.getInput(2).getSize(), val);
+			long val = getMemoryState().getValue(storedVar);
+			getMemoryState().setValue(space, byteOffset, op.getInput(2).getSize(), val);
 		}
 	}
 
 	/// This routine performs a standard pcode \b branch \b indirect operation on the memory state
 	/// \param op is the particular \e branchind op being executed
 	public void executeBranchind(PcodeOpRaw op) {
-		long offset = memstate.getValue(op.getInput(0));
+		long offset = getMemoryState().getValue(op.getInput(0));
 		AddressSpace space = op.getAddress().getAddressSpace();
 		setCurrentAddress(space.getTruncatedAddress(offset, true));
 	}

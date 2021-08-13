@@ -16,7 +16,7 @@
  */
 package ghidra.pcode.emulate.callother;
 
-import ghidra.pcode.emulate.Emulate;
+import ghidra.pcode.emulate.AbstractEmulate;
 import ghidra.program.model.pcode.Varnode;
 
 public interface OpBehaviorOther {
@@ -33,5 +33,5 @@ public interface OpBehaviorOther {
 	 * corresponds to the first (leftmost) parameter passed to 
 	 * this pcodeop within the language implementation.
 	 */
-	public void evaluate(Emulate emu, Varnode out, Varnode[] inputs);
+	public void evaluate(AbstractEmulate emu, Varnode out, Varnode[] inputs);
 }

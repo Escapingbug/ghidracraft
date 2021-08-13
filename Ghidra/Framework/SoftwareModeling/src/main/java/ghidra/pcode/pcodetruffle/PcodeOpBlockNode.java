@@ -43,7 +43,10 @@ public class PcodeOpBlockNode extends PcodeOpNode {
             long id = dest.getOffset();
             currentIndex += id;
 
-            if (currentIndex < 0 || currentIndex >= ops.length) {
+            // branch within block can only be relative.
+            // actually, it should only be within single address
+            Address opAddr = op.getSeqnum().getTarget();
+            if (currentIndex < 0 || currentIndex >= ops.length || this.ops[currentIndex].getAddress() != opAddr) {
                 throw new RuntimeException("invalid relative branch");
             }
 
@@ -58,6 +61,16 @@ public class PcodeOpBlockNode extends PcodeOpNode {
         currentIndex = 0;
         while (currentIndex < ops.length) {
             try {
+                if (this.getContext().getHalt() == true) {
+                    throw new PcodeOpHaltException();
+                }
+                
+                PcodeOpNode op = ops[currentIndex];
+                Address addr = op.getAddress();
+                if (addr != this.getContext().getCurrentAddress()) {
+                    this.getContext().setCurrentAddress(addr);
+                }
+
                 ops[currentIndex].execute(frame);
             } catch (PcodeOpBranchException e) {
                 PcodeOp op = e.getOp();
@@ -75,6 +88,11 @@ public class PcodeOpBlockNode extends PcodeOpNode {
             }
             currentIndex += 1;
         }
+    }
+
+    @Override
+    public Address getAddress() {
+        return this.ops[0].getAddress();
     }
     
 }

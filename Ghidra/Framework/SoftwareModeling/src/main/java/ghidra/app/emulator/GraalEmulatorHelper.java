@@ -28,11 +28,11 @@ import ghidra.program.model.lang.Register;
 import ghidra.program.model.listing.Program;
 import ghidra.util.Msg;
 
-public class JitEmulatorHelper implements MemoryFaultHandler, EmulatorConfiguration {
+public class GraalEmulatorHelper implements MemoryFaultHandler, EmulatorConfiguration {
 
     private final Program program;
     
-    public JitEmulatorHelper(Program program) {
+    public GraalEmulatorHelper(Program program) {
         this.program = program;
     }
 
@@ -48,7 +48,7 @@ public class JitEmulatorHelper implements MemoryFaultHandler, EmulatorConfigurat
 			@Override
 			public MemoryLoadImage getMemoryLoadImage() {
 				return new ProgramMappedLoadImage(
-					new ProgramMappedMemory(program, JitEmulatorHelper.this));
+					new ProgramMappedMemory(program, GraalEmulatorHelper.this));
 			}
 
 			@Override
@@ -79,6 +79,14 @@ public class JitEmulatorHelper implements MemoryFaultHandler, EmulatorConfigurat
     @Override
     public boolean unknownAddress(Address address, boolean write) {
         return false;
+    }
+
+    public Register getPCRegister() {
+        return program.getLanguage().getProgramCounter();
+    }
+
+    public Register getStackPointerRegister() {
+        return stackptr
     }
     
 }

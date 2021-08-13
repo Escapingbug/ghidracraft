@@ -23,6 +23,7 @@ import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.nodes.NodeInfo;
 
 import ghidra.pcode.memstate.MemoryState;
+import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressFactory;
 import ghidra.program.model.pcode.PcodeOp;
 
@@ -63,4 +64,5 @@ public abstract class PcodeOpNode extends Node implements InstrumentableNode {
     }
 
     public abstract void execute(final VirtualFrame frame);
+    public abstract Address getAddress();
 }

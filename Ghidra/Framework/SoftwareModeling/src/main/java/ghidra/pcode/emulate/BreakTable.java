@@ -38,7 +38,7 @@ public abstract class BreakTable {
   /// Breakpoints may need access to the context in which they are invoked. This
   /// routine provides the context for all breakpoints in the table.
   /// \param emu is the Emulate context
-  public abstract void setEmulate(Emulate emu);
+  public abstract void setEmulate(AbstractEmulate emu);
 
   /// \brief Invoke any breakpoints associated with this particular pcodeop
   ///

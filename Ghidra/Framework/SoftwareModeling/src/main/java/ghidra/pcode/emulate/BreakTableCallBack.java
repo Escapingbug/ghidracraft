@@ -33,7 +33,7 @@ public class BreakTableCallBack extends BreakTable {
 
 	public static final String DEFAULT_NAME = "*";
 
-	private Emulate emulate;
+	private AbstractEmulate emulate;
 	private SleighLanguage language;
 	// a container of address based breakpoints
 	private MapSTL<Address, BreakCallBack> addressCallback =
@@ -112,7 +112,7 @@ public class BreakTableCallBack extends BreakTable {
 	/// This routine invokes the setEmulate method on each breakpoint currently in the table
 	/// \param emu is the emulator to be associated with the breakpoints
 	@Override
-	public void setEmulate(Emulate emu) {
+	public void setEmulate(AbstractEmulate emu) {
 		// Make sure all callbbacks are aware of new emulator
 		emulate = emu;
 		IteratorSTL<Pair<Address, BreakCallBack>> iter1;

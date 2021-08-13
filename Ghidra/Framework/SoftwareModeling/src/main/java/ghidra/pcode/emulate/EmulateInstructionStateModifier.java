@@ -35,12 +35,12 @@ import java.util.Map;
  */
 public abstract class EmulateInstructionStateModifier {
 
-	protected final Emulate emu;
+	protected final AbstractEmulate emu;
 	protected final Language language;
 
 	private Map<Integer, OpBehaviorOther> pcodeOpMap;
 
-	protected EmulateInstructionStateModifier(Emulate emu) {
+	protected EmulateInstructionStateModifier(AbstractEmulate emu) {
 		this.emu = emu;
 		this.language = emu.getLanguage();
 	}
