@@ -1,5 +1,5 @@
 /* ###
- * IP: GHIDRA
+ * IP: BinCraft
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ struct Address {
     pub space: String,
     #[serde(with = "crate::serde_int")]
     pub offset: usize,
+    pub size: i32,
 }
 
 
@@ -35,7 +36,6 @@ struct Address {
 pub struct Patch {
     addr: Address,
     payload: String,
-    size: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -60,9 +60,8 @@ impl Patches {
         let payload = payload.to_string();
 
         self.patches.push(Patch {
-            addr: Address { space, offset },
+            addr: Address { space, offset, size },
             payload,
-            size
         })
     }
 
@@ -163,7 +162,7 @@ impl Patches {
             }
         }
 
-        patch.size
+        patch.addr.size
     }
 }
 

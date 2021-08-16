@@ -20,6 +20,7 @@
 #define __CPUI_BLOCK__
 
 #include "jumptable.hh"
+#include "rust/cxx.h"
 
 class BlockBasic;		// Forward declarations
 class BlockList;
@@ -322,6 +323,14 @@ public:
   BlockGoto *newBlockGoto(FlowBlock *bl);					///< Build a new BlockGoto
   BlockMultiGoto *newBlockMultiGoto(FlowBlock *bl,int4 outedge);		///< Build a new BlockMultiGoto
   BlockList *newBlockList(const vector<FlowBlock *> &nodes);			///< Build a new BlockList
+  BlockList *newBlockList(rust::Slice<FlowBlock *> nodes) {
+    vector<FlowBlock*> blocks;
+    for (FlowBlock* block : nodes) {
+      blocks.push_back(block);
+    }
+
+    return newBlockList(blocks);
+  }
   BlockCondition *newBlockCondition(FlowBlock *b1,FlowBlock *b2);		///< Build a new BlockCondition
   BlockIf *newBlockIfGoto(FlowBlock *cond);					///< Build a new BlockIfGoto
   BlockIf *newBlockIf(FlowBlock *cond,FlowBlock *tc);				///< Build a new BlockIf
@@ -330,6 +339,14 @@ public:
   BlockDoWhile *newBlockDoWhile(FlowBlock *condcl);				///< Build a new BlockDoWhile
   BlockInfLoop *newBlockInfLoop(FlowBlock *body);				///< Build a new BlockInfLoop
   BlockSwitch *newBlockSwitch(const vector<FlowBlock *> &cs,bool hasExit);	///< Build a new BlockSwitch
+  BlockSwitch *newBlockSwitch(rust::Slice<FlowBlock *> cs,bool hasExit) {
+    vector<FlowBlock*> blocks;
+    for (FlowBlock* block : cs) {
+      blocks.push_back(block);
+    }
+
+    return newBlockSwitch(blocks, hasExit);
+  }
 
   void orderBlocks(void) {	///< Sort blocks using the final ordering
     if (list.size()!=1) sort(list.begin(),list.end(),compareFinalOrder); }

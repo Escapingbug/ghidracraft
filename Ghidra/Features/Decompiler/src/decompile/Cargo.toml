@@ -16,6 +16,7 @@ serde-xml-rs = "0.4"
 parse_int = "0.5"
 num-traits = "0.2"
 pcodecraft = { git = "https://github.com/StarCrossPortal/pcodecraft.git", features = ["ghidra"] }
+reccon = { path = "/home/anciety/Code/reccon" }
 
 [build-dependencies]
 cxx-build = "1.0"

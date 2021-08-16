@@ -123,7 +123,8 @@ const CLI_CXX: &[&'static str] = &[
     "grammar.cc",
     "callgraph.cc",
     "xml_arch.cc",
-    "loadimage_xml.cc"
+    "loadimage_xml.cc",
+    "testfunction.cc"
 ];
 
 struct CompileOptions {

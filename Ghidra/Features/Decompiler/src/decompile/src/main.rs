@@ -18,6 +18,7 @@ use std::env;
 
 pub mod patch;
 pub mod bridge;
+pub mod cfs;
 #[cfg(debug_assertions)]
 pub mod cli;
 mod serde_int;

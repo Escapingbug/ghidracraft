@@ -39,34 +39,58 @@ pub(crate) mod ffi {
         include!("ifacedecomp.hh");
         include!("ruststream.hh");
         include!("ghidra_process.hh");
+        include!("block.hh");
 
-        type OpCode = pcodecraft::OpCode;
-        type Address;
-        type AddrSpace;
-        type VarnodeData;
-        type AddrSpaceManager;
-        type Architecture;
-        type PcodeEmit;
-        type StreamReader;
 
         fn ghidra_process_main();
 
+        type AddrSpace;
         fn getName(self: &AddrSpace) -> &CxxString;
 
+        type PcodeOp;
+
+        type Datatype;
+        type Varnode;
+
+        type Funcdata;
+        unsafe fn newOp(self: Pin<&mut Funcdata>, inputs: i32, addr: &Address) -> *mut PcodeOp;
+        unsafe fn opInsertBegin(self: Pin<&mut Funcdata>, op: *mut PcodeOp, block: *mut BlockBasic);
+        unsafe fn opInsertAfter(self: Pin<&mut Funcdata>, op: *mut PcodeOp, prev: *mut PcodeOp);
+        unsafe fn opInsertInput(self: Pin<&mut Funcdata>, op: *mut PcodeOp, varnode: *mut Varnode, slot: i32);
+        unsafe fn newVarnodeOut(
+            self: Pin<&mut Funcdata>,
+            size: i32,
+            addr: &Address,
+            op: *mut PcodeOp) -> *mut Varnode;
+        unsafe fn newUniqueOut(
+            self: Pin<&mut Funcdata>,
+            size: i32,
+            op: *mut PcodeOp
+        ) -> *mut Varnode;
+        unsafe fn newUnique(self: Pin<&mut Funcdata>, size: i32, datatype: *mut Datatype) -> *mut Varnode;
+
+        type Address;
         unsafe fn new_address(space: *mut AddrSpace, off: usize) -> UniquePtr<Address>;
         fn getSpace(self: &Address) -> *mut AddrSpace;
         fn getOffset(self: &Address) -> usize;
 
+        type VarnodeData;
         unsafe fn new_varnode_data(
             space: *mut AddrSpace,
             offset: usize,
             size: u32,
         ) -> UniquePtr<VarnodeData>;
 
+        type Architecture;
         fn getAddrSpaceManager(self: &Architecture) -> &AddrSpaceManager;
 
+        type AddrSpaceManager;
         fn getSpaceByName(self: &AddrSpaceManager, name: &CxxString) -> *mut AddrSpace;
 
+        type OpCode = pcodecraft::OpCode;
+        fn get_opcode(s: &CxxString) -> OpCode;
+
+        type PcodeEmit;
         unsafe fn dump_rust(
             emit: *mut PcodeEmit,
             addr: &Address,
@@ -76,10 +100,67 @@ pub(crate) mod ffi {
             size: i32,
         );
 
+        type StreamReader;
         fn read(self: Pin<&mut StreamReader>, buf: &mut [u8]) -> usize;
 
-        // opcode
-        fn get_opcode(s: &CxxString) -> OpCode;
+
+        type FlowBlock;
+        fn getOut(self: &FlowBlock, idx: i32) -> *const FlowBlock;
+        fn sizeOut(self: &FlowBlock) -> i32;
+
+        type BlockBasic;
+        type BlockCopy;
+        type BlockGoto;
+        type BlockMultiGoto;
+        type BlockList;
+        type BlockCondition;
+        type BlockIf;
+        type BlockWhileDo;
+        type BlockDoWhile;
+        type BlockInfLoop;
+        type BlockSwitch;
+
+        type BlockGraph;
+        fn getSize(self: &BlockGraph) -> i32;
+        fn getBlock(self: &BlockGraph, idx: i32) -> *mut FlowBlock;
+        fn getStartBlock(self: &BlockGraph) -> *mut FlowBlock;
+        unsafe fn newBlockBasic(self: Pin<&mut BlockGraph>, fd: *mut Funcdata) -> *mut BlockBasic;
+        unsafe fn newBlockCopy(self: Pin<&mut BlockGraph>, block: *mut FlowBlock) -> *mut BlockCopy;
+        unsafe fn newBlockGoto(self: Pin<&mut BlockGraph>, block: *mut FlowBlock) -> *mut BlockGoto;
+        unsafe fn newBlockMultiGoto(
+            self: Pin<&mut BlockGraph>,
+            block: *mut FlowBlock,
+            out_edge: i32) -> *mut BlockMultiGoto;
+        unsafe fn newBlockList(
+            self: Pin<&mut BlockGraph>,
+            nodes: &mut[*mut FlowBlock]) -> *mut BlockList;
+        unsafe fn newBlockCondition(
+            self: Pin<&mut BlockGraph>,
+            b1: *mut FlowBlock, b2: *mut FlowBlock) -> *mut BlockCondition;
+        unsafe fn newBlockIfGoto(
+            self: Pin<&mut BlockGraph>,
+            cond: *mut FlowBlock) -> *mut BlockIf;
+        unsafe fn newBlockIf(
+            self: Pin<&mut BlockGraph>,
+            cond: *mut FlowBlock, true_case: *mut FlowBlock) -> *mut BlockIf;
+        unsafe fn newBlockIfElse(
+            self: Pin<&mut BlockGraph>,
+            cond: *mut FlowBlock,
+            true_case: *mut FlowBlock,
+            false_case: *mut FlowBlock
+        ) -> *mut BlockIf;
+        unsafe fn newBlockWhileDo(
+            self: Pin<&mut BlockGraph>,
+            cond: *mut FlowBlock, body: *mut FlowBlock) -> *mut BlockWhileDo;
+        unsafe fn newBlockDoWhile(
+            self: Pin<&mut BlockGraph>,
+            cond: *mut FlowBlock) -> *mut BlockDoWhile;
+        unsafe fn newBlockInfLoop(
+            self: Pin<&mut BlockGraph>,
+            body: *mut FlowBlock) -> *mut BlockInfLoop;
+        unsafe fn newBlockSwitch(
+            self: Pin<&mut BlockGraph>,
+            cases: &mut [*mut FlowBlock], has_exit: bool) -> *mut BlockSwitch;
     }
 }
 pub use ffi::*;
