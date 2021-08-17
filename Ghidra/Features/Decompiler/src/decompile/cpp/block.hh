@@ -151,6 +151,12 @@ public:
   FlowBlock *getCopyMap(void) const { return copymap; }		///< Get the mapped FlowBlock
   const FlowBlock *getParent(void) const { return (const FlowBlock *) parent; }	///< Get the parent FlowBlock of \b this
   uint4 getFlags(void) const { return flags; }			///< Get the block_flags properties
+  unique_ptr<Address> getStartAddress(void) const {
+    return make_unique<Address>(getStart());
+  }
+  unique_ptr<Address> getStopAddress(void) const {
+    return make_unique<Address>(getStop());
+  }
   virtual Address getStart(void) const { return Address(); }	///< Get the starting address of code in \b this FlowBlock
   virtual Address getStop(void) const { return Address(); }	///< Get the ending address of code in \b this FlowBlock
   virtual block_type getType(void) const { return t_plain; }	///< Get the FlowBlock type of \b this
@@ -317,6 +323,9 @@ public:
 				// Factory functions
   FlowBlock *newBlock(void);							///< Build a new plain FlowBlock
   BlockBasic *newBlockBasic(Funcdata *fd);					///< Build a new BlockBasic
+  BlockBasic *newBlockBasic(Funcdata &fd) {
+    return newBlockBasic(&fd);
+  }
 
 				// Factory (identify) routines
   BlockCopy *newBlockCopy(FlowBlock *bl);					///< Build a new BlockCopy
@@ -392,6 +401,7 @@ class BlockBasic: public FlowBlock {
   void removeOp(PcodeOp *inst);				///< Remove PcodeOp from \b this basic block
 public:
   BlockBasic(Funcdata *fd) { data = fd; }		///< Construct given the underlying function
+  FlowBlock *asFlowBlock() const { return (FlowBlock*) this; }
   Funcdata *getFuncdata(void) { return data; }		///< Return the underlying Funcdata object
   const Funcdata *getFuncdata(void) const { return (const Funcdata *)data; }	///< Return the underlying Funcdata object
   bool contains(const Address &addr) const { return cover.inRange(addr, 1); }	///< Determine if the given address is contained in the original range

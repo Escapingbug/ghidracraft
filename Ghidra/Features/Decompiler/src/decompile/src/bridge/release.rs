@@ -68,6 +68,7 @@ pub(crate) mod ffi {
             op: *mut PcodeOp
         ) -> *mut Varnode;
         unsafe fn newUnique(self: Pin<&mut Funcdata>, size: i32, datatype: *mut Datatype) -> *mut Varnode;
+        unsafe fn newConstant(self: Pin<&mut Funcdata>, size: i32, val: usize) -> *mut Varnode;
 
         type Address;
         unsafe fn new_address(space: *mut AddrSpace, off: usize) -> UniquePtr<Address>;
@@ -107,8 +108,11 @@ pub(crate) mod ffi {
         type FlowBlock;
         fn getOut(self: &FlowBlock, idx: i32) -> *const FlowBlock;
         fn sizeOut(self: &FlowBlock) -> i32;
+        fn getStartAddress(self: &FlowBlock) -> UniquePtr<Address>;
+        fn getStopAddress(self: &FlowBlock) -> UniquePtr<Address>;
 
         type BlockBasic;
+        fn asFlowBlock(self: &BlockBasic) -> *mut FlowBlock;
         type BlockCopy;
         type BlockGoto;
         type BlockMultiGoto;
@@ -124,7 +128,7 @@ pub(crate) mod ffi {
         fn getSize(self: &BlockGraph) -> i32;
         fn getBlock(self: &BlockGraph, idx: i32) -> *mut FlowBlock;
         fn getStartBlock(self: &BlockGraph) -> *mut FlowBlock;
-        unsafe fn newBlockBasic(self: Pin<&mut BlockGraph>, fd: *mut Funcdata) -> *mut BlockBasic;
+        unsafe fn newBlockBasic(self: Pin<&mut BlockGraph>, fd: Pin<&mut Funcdata>) -> *mut BlockBasic;
         unsafe fn newBlockCopy(self: Pin<&mut BlockGraph>, block: *mut FlowBlock) -> *mut BlockCopy;
         unsafe fn newBlockGoto(self: Pin<&mut BlockGraph>, block: *mut FlowBlock) -> *mut BlockGoto;
         unsafe fn newBlockMultiGoto(
