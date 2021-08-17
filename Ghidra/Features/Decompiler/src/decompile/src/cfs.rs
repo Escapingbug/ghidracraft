@@ -265,7 +265,7 @@ fn import_recursively(cur_stmt: &Statement, import_status: &mut ImportStatus) ->
                 unreachable!()
             }
         }
-        Assign { var, value } => {
+        Assign { .. } => {
             // assign is delayed until address are resolved.
             // That is, only if we find a proper address for assignment statement, we
             // then actually generate the assign block ourselves.
