@@ -203,6 +203,7 @@ fn import_recursively(cur_stmt: &Statement, import_status: &mut ImportStatus) ->
         for assign in assigns.into_iter() {
             if let Statement::Assign { var, value } = *assign {
                 let varnode = status.varnode_map.get(var.as_str()).unwrap();
+                todo!("implement assignment -> block");
             }
         }
 
