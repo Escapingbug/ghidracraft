@@ -203,6 +203,9 @@ public class Emulate extends AbstractEmulate {
 	/// completes.
 	public void executeInstruction(boolean stopAtBreakpoint, TaskMonitor monitor)
 			throws CancelledException, LowlevelError, InstructionDecodeException {
+		if (monitor == null) {
+			monitor = TaskMonitor.DUMMY;
+		}
 		if (executionState == EmulateExecutionState.STOPPED) {
 			if (lastExecuteAddress == null && instructionStateModifier != null) {
 				instructionStateModifier.initialExecuteCallback(this, currentAddress,
