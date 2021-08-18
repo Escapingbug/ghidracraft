@@ -19,6 +19,7 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.instrumentation.GenerateWrapper;
 import com.oracle.truffle.api.instrumentation.InstrumentableNode;
 import com.oracle.truffle.api.instrumentation.ProbeNode;
+import com.oracle.truffle.api.instrumentation.Tag;
 import com.oracle.truffle.api.nodes.Node;
 import com.oracle.truffle.api.nodes.NodeInfo;
 
@@ -45,7 +46,7 @@ public abstract class PcodeOpNode extends Node implements InstrumentableNode {
         this(copyFrom.context);
     }
 
-    protected PcodeOpContext getContext() {
+    public PcodeOpContext getContext() {
         if (this.context == null) {
             return lookupContextReference(PcodeOpLanguage.class).get();
         } else {

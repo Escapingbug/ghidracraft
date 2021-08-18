@@ -28,7 +28,6 @@ import ghidra.program.model.address.*;
 import ghidra.program.model.lang.*;
 import ghidra.program.model.listing.Instruction;
 import ghidra.util.*;
-import ghidra.util.exception.CancelledException;
 import ghidra.util.task.TaskMonitor;
 
 public abstract class AbstractEmulator {
@@ -326,6 +325,31 @@ public abstract class AbstractEmulator {
 		return emuHalt;
 	}
 
+	/**
+	 * Returns the current context register value.  The context value returned reflects
+	 * its state when the previously executed instruction was 
+	 * parsed/executed.  The context value returned will feed into the next 
+	 * instruction to be parsed with its non-flowing bits cleared and
+	 * any future context state merged in.
+	 * @return context as a RegisterValue object
+	 */
+	public abstract RegisterValue getContextRegisterValue();
+
+	/**
+	 * Sets the context register value at the current execute address.
+	 * The Emulator should not be running when this method is invoked.
+	 * Only flowing context bits should be set, as non-flowing bits
+	 * will be cleared prior to parsing on instruction.  In addition,
+	 * any future context state set by the pcode emitter will
+	 * take precedence over context set using this method.  This method
+	 * is primarily intended to be used to establish the initial 
+	 * context state.
+	 * @param regValue is the value to set context to
+	 */
+	public abstract void setContextRegisterValue(RegisterValue regValue);
+
+	public abstract boolean isInstructionDecoding();
+
 	/*
 	public abstract void executeInstruction(boolean stopAtBreakpoint, TaskMonitor monitor)
 			throws CancelledException, LowlevelError, InstructionDecodeException {
@@ -343,7 +367,7 @@ public abstract class AbstractEmulator {
 	 * @return true if halted at a breakpoint
 	 */
 	/*
-	public boolean isAtBreakpoint() {
+	public boolean isAtBreakpoint();
 		return getHalt() && emulator.getExecutionState() == EmulateExecutionState.BREAKPOINT;
 	}
 	*/

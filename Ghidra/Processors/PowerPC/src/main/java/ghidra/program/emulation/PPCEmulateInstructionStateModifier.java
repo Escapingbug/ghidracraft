@@ -17,6 +17,7 @@ package ghidra.program.emulation;
 
 import java.math.BigInteger;
 
+import ghidra.pcode.emulate.AbstractEmulate;
 import ghidra.pcode.emulate.Emulate;
 import ghidra.pcode.emulate.EmulateInstructionStateModifier;
 import ghidra.pcode.emulate.callother.CountLeadingZerosOpBehavior;
@@ -38,7 +39,7 @@ public class PPCEmulateInstructionStateModifier extends EmulateInstructionStateM
 	private class vectorPermuteOpBehavior implements OpBehaviorOther {
 
 		@Override
-		public void evaluate(Emulate emu, Varnode out, Varnode[] inputs) {
+		public void evaluate(AbstractEmulate emu, Varnode out, Varnode[] inputs) {
 
 			if (out == null) {
 				throw new LowlevelError("CALLOTHER: Vector permute op missing required output");

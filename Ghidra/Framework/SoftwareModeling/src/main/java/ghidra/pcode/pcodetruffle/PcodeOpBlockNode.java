@@ -18,6 +18,7 @@ package ghidra.pcode.pcodetruffle;
 import java.util.Vector;
 
 import com.oracle.truffle.api.frame.VirtualFrame;
+import com.oracle.truffle.api.instrumentation.Tag;
 
 import ghidra.program.model.address.Address;
 import ghidra.program.model.pcode.PcodeOp;
@@ -95,4 +96,11 @@ public class PcodeOpBlockNode extends PcodeOpNode {
         return this.ops[0].getAddress();
     }
     
+    @Override
+    public boolean hasTag(Class<? extends Tag> tag) {
+        if (tag == PcodeOpLanguage.BLOCK) {
+            return true;
+        }
+        return false;
+    }
 }

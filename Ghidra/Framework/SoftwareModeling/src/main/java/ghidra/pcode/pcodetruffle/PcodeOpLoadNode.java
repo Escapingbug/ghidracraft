@@ -18,18 +18,16 @@ package ghidra.pcode.pcodetruffle;
 import java.math.BigInteger;
 
 import com.oracle.truffle.api.frame.VirtualFrame;
+import com.oracle.truffle.api.instrumentation.Tag;
 
 import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressSpace;
 import ghidra.program.model.pcode.PcodeOp;
 import ghidra.program.model.pcode.Varnode;
 
-public class PcodeOpLoadNode extends PcodeOpNode {
-    final PcodeOp pcodeOp;
-
+public class PcodeOpLoadNode extends PcodeOpInstNode {
     public PcodeOpLoadNode(final PcodeOp pcodeOp, PcodeOpContext context) {
-        super(context);
-        this.pcodeOp = pcodeOp;
+        super(pcodeOp, context);
     }
 
     public PcodeOpLoadNode(final PcodeOp pcodeOp) {
@@ -60,5 +58,13 @@ public class PcodeOpLoadNode extends PcodeOpNode {
     @Override
     public Address getAddress() {
         return this.pcodeOp.getSeqnum().getTarget();
+    }
+
+    @Override
+    public boolean hasTag(Class<? extends Tag> tag) {
+        if (tag == PcodeOpLanguage.STATEMENT) {
+            return true;
+        }
+        return false;
     }
 }

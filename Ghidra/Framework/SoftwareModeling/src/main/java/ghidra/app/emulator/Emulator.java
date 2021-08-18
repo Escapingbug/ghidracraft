@@ -126,5 +126,10 @@ public class Emulator extends AbstractEmulator {
         super.dispose();
         emulator.dispose();
     }
+
+	@Override
+	public boolean isInstructionDecoding() {
+		return emulator.getExecutionState() == EmulateExecutionState.INSTRUCTION_DECODE;
+	}
     
 }

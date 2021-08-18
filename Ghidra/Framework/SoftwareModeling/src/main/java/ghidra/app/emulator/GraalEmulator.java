@@ -19,6 +19,9 @@ import ghidra.pcode.pcodetruffle.GraalEmulate;
 import ghidra.pcode.pcodetruffle.PcodeOpReturnException;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressSpace;
+import ghidra.program.model.lang.RegisterValue;
+import ghidra.util.exception.CancelledException;
+import ghidra.util.task.TaskMonitor;
 
 public class GraalEmulator extends AbstractEmulator {
 	private final GraalEmulate emulate;
@@ -28,6 +31,9 @@ public class GraalEmulator extends AbstractEmulator {
 		this.emulate = new GraalEmulate(language, memState, breakTable);
 	}
 
+	public void continueExecution(TaskMonitor monitor) throws CancelledException {
+		emulate.continueExecution(monitor);
+	}
 
     public void run(Address entry) {
         emulate.run(entry);
@@ -55,6 +61,23 @@ public class GraalEmulator extends AbstractEmulator {
 	@Override
 	public Address getExecuteAddress() {
 		return emulate.getExecuteAddress();
+	}
+
+
+	@Override
+	public RegisterValue getContextRegisterValue() {
+		return emulate.getContextRegisterValue();
+	}
+
+
+	@Override
+	public void setContextRegisterValue(RegisterValue regValue) {
+		emulate.setContextRegisterValue(regValue);
+	}
+
+	@Override
+	public boolean isInstructionDecoding() {
+		return false;
 	}
 }
 

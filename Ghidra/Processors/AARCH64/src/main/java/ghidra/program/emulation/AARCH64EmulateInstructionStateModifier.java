@@ -17,6 +17,7 @@ package ghidra.program.emulation;
 
 import java.math.BigInteger;
 
+import ghidra.pcode.emulate.AbstractEmulate;
 import ghidra.pcode.emulate.Emulate;
 import ghidra.pcode.emulate.EmulateInstructionStateModifier;
 import ghidra.pcode.emulate.callother.OpBehaviorOther;
@@ -261,7 +262,7 @@ public class AARCH64EmulateInstructionStateModifier extends EmulateInstructionSt
 
 		protected abstract long op1(long x, int esize);
 
-		void check_args(Emulate emu, Varnode outputVarnode, Varnode[] inputs) {
+		void check_args(AbstractEmulate emu, Varnode outputVarnode, Varnode[] inputs) {
 
 			// Requires 1 input
 
@@ -303,7 +304,7 @@ public class AARCH64EmulateInstructionStateModifier extends EmulateInstructionSt
 	private abstract class SIMD_SOP1 extends SIMD_OP1 {
 
 		@Override
-		public void evaluate(Emulate emu, Varnode outputVarnode, Varnode[] inputs) {
+		public void evaluate(AbstractEmulate emu, Varnode outputVarnode, Varnode[] inputs) {
 
 			check_args(emu, outputVarnode, inputs);
 
@@ -339,7 +340,7 @@ public class AARCH64EmulateInstructionStateModifier extends EmulateInstructionSt
 	private abstract class SIMD_UOP1 extends SIMD_OP1 {
 
 		@Override
-		public void evaluate(Emulate emu, Varnode outputVarnode, Varnode[] inputs) {
+		public void evaluate(AbstractEmulate emu, Varnode outputVarnode, Varnode[] inputs) {
 
 			check_args(emu, outputVarnode, inputs);
 
@@ -401,7 +402,7 @@ public class AARCH64EmulateInstructionStateModifier extends EmulateInstructionSt
 
 		protected abstract long op1e(long x, int s_size, int d_size);
 
-		void check_args(Emulate emu, Varnode outputVarnode, Varnode[] inputs) {
+		void check_args(AbstractEmulate emu, Varnode outputVarnode, Varnode[] inputs) {
 
 			// Requires 2 input
 
@@ -443,7 +444,7 @@ public class AARCH64EmulateInstructionStateModifier extends EmulateInstructionSt
 	private abstract class SIMD_SOP1E extends SIMD_OP1E {
 
 		@Override
-		public void evaluate(Emulate emu, Varnode outputVarnode, Varnode[] inputs) {
+		public void evaluate(AbstractEmulate emu, Varnode outputVarnode, Varnode[] inputs) {
 
 			check_args(emu, outputVarnode, inputs);
 
@@ -480,7 +481,7 @@ public class AARCH64EmulateInstructionStateModifier extends EmulateInstructionSt
 	private abstract class SIMD_UOP1E extends SIMD_OP1E {
 
 		@Override
-		public void evaluate(Emulate emu, Varnode outputVarnode, Varnode[] inputs) {
+		public void evaluate(AbstractEmulate emu, Varnode outputVarnode, Varnode[] inputs) {
 
 			check_args(emu, outputVarnode, inputs);
 
@@ -528,7 +529,7 @@ public class AARCH64EmulateInstructionStateModifier extends EmulateInstructionSt
 
 		protected abstract long op2(long x, long y, int esize);
 
-		void check_args(Emulate emu, Varnode outputVarnode, Varnode[] inputs) {
+		void check_args(AbstractEmulate emu, Varnode outputVarnode, Varnode[] inputs) {
 
 			// Requires 2 or 3 inputs
 
@@ -581,7 +582,7 @@ public class AARCH64EmulateInstructionStateModifier extends EmulateInstructionSt
 	private abstract class SIMD_SOP2 extends SIMD_OP2 {
 
 		@Override
-		public void evaluate(Emulate emu, Varnode outputVarnode, Varnode[] inputs) {
+		public void evaluate(AbstractEmulate emu, Varnode outputVarnode, Varnode[] inputs) {
 
 			check_args(emu, outputVarnode, inputs);
 
@@ -625,7 +626,7 @@ public class AARCH64EmulateInstructionStateModifier extends EmulateInstructionSt
 	private abstract class SIMD_UOP2 extends SIMD_OP2 {
 
 		@Override
-		public void evaluate(Emulate emu, Varnode outputVarnode, Varnode[] inputs) {
+		public void evaluate(AbstractEmulate emu, Varnode outputVarnode, Varnode[] inputs) {
 
 			check_args(emu, outputVarnode, inputs);
 
@@ -678,7 +679,7 @@ public class AARCH64EmulateInstructionStateModifier extends EmulateInstructionSt
 
 		protected abstract long op2(long x, long y, int iesize, int oesize);
 
-		void check_args(Emulate emu, Varnode outputVarnode, Varnode[] inputs) {
+		void check_args(AbstractEmulate emu, Varnode outputVarnode, Varnode[] inputs) {
 
 			// Requires 2 inputs
 
@@ -723,7 +724,7 @@ public class AARCH64EmulateInstructionStateModifier extends EmulateInstructionSt
 	private abstract class SIPD_SOP2 extends SIPD_OP2 {
 
 		@Override
-		public void evaluate(Emulate emu, Varnode outputVarnode, Varnode[] inputs) {
+		public void evaluate(AbstractEmulate emu, Varnode outputVarnode, Varnode[] inputs) {
 
 			check_args(emu, outputVarnode, inputs);
 
@@ -792,7 +793,7 @@ public class AARCH64EmulateInstructionStateModifier extends EmulateInstructionSt
 	private abstract class SIPD_UOP2 extends SIPD_OP2 {
 
 		@Override
-		public void evaluate(Emulate emu, Varnode outputVarnode, Varnode[] inputs) {
+		public void evaluate(AbstractEmulate emu, Varnode outputVarnode, Varnode[] inputs) {
 
 			check_args(emu, outputVarnode, inputs);
 
@@ -871,7 +872,7 @@ public class AARCH64EmulateInstructionStateModifier extends EmulateInstructionSt
 	private class SIMD_COPY implements OpBehaviorOther {
 
 		@Override
-		public void evaluate(Emulate emu, Varnode outputVarnode, Varnode[] inputs) {
+		public void evaluate(AbstractEmulate emu, Varnode outputVarnode, Varnode[] inputs) {
 
 			// Requires 2 inputs
 
@@ -955,7 +956,7 @@ public class AARCH64EmulateInstructionStateModifier extends EmulateInstructionSt
 	private class MP_INT_EQUAL implements OpBehaviorOther {
 
 		@Override
-		public void evaluate(Emulate emu, Varnode outputVarnode, Varnode[] inputs) {
+		public void evaluate(AbstractEmulate emu, Varnode outputVarnode, Varnode[] inputs) {
 			int numArgs = inputs.length - 1;
 			if (numArgs != 2) {
 				throw new LowlevelError("MP_INT_EQUAL: requires 2 (Vm, Vn), got " + numArgs);
@@ -994,7 +995,7 @@ public class AARCH64EmulateInstructionStateModifier extends EmulateInstructionSt
 	private class MP_INT_ABS implements OpBehaviorOther {
 
 		@Override
-		public void evaluate(Emulate emu, Varnode outputVarnode, Varnode[] inputs) {
+		public void evaluate(AbstractEmulate emu, Varnode outputVarnode, Varnode[] inputs) {
 			int numArgs = inputs.length - 1;
 			if (numArgs != 1) {
 				throw new LowlevelError("MP_INT_ABS: requires 1 (Vn), got " + numArgs);
@@ -1048,7 +1049,7 @@ public class AARCH64EmulateInstructionStateModifier extends EmulateInstructionSt
 	private class MP_INT_NEGATE implements OpBehaviorOther {
 
 		@Override
-		public void evaluate(Emulate emu, Varnode outputVarnode, Varnode[] inputs) {
+		public void evaluate(AbstractEmulate emu, Varnode outputVarnode, Varnode[] inputs) {
 			int numArgs = inputs.length - 1;
 			if (numArgs != 1) {
 				throw new LowlevelError("MP_INT_NEGATE: requires 1 (Vn), got " + numArgs);
@@ -1094,7 +1095,7 @@ public class AARCH64EmulateInstructionStateModifier extends EmulateInstructionSt
 	private class MP_INT_AND implements OpBehaviorOther {
 
 		@Override
-		public void evaluate(Emulate emu, Varnode outputVarnode, Varnode[] inputs) {
+		public void evaluate(AbstractEmulate emu, Varnode outputVarnode, Varnode[] inputs) {
 			int numArgs = inputs.length - 1;
 			if (numArgs != 2) {
 				throw new LowlevelError("MP_INT_AND: requires 2 (Vm, Vn), got " + numArgs);
@@ -1145,7 +1146,7 @@ public class AARCH64EmulateInstructionStateModifier extends EmulateInstructionSt
 	private class MP_INT_RIGHT implements OpBehaviorOther {
 
 		@Override
-		public void evaluate(Emulate emu, Varnode outputVarnode, Varnode[] inputs) {
+		public void evaluate(AbstractEmulate emu, Varnode outputVarnode, Varnode[] inputs) {
 			int numArgs = inputs.length - 1;
 			if (numArgs != 2) {
 				throw new LowlevelError("MP_INT_RIGHT: requires 2 (Vn, shift), got " + numArgs);
@@ -1186,7 +1187,7 @@ public class AARCH64EmulateInstructionStateModifier extends EmulateInstructionSt
 	private class MP_INT_MULT implements OpBehaviorOther {
 
 		@Override
-		public void evaluate(Emulate emu, Varnode outputVarnode, Varnode[] inputs) {
+		public void evaluate(AbstractEmulate emu, Varnode outputVarnode, Varnode[] inputs) {
 			int numArgs = inputs.length - 1;
 			if (numArgs != 2) {
 				throw new LowlevelError("MP_INT_MULT: requires 2 (Vm, Vn), got " + numArgs);
@@ -1216,7 +1217,7 @@ public class AARCH64EmulateInstructionStateModifier extends EmulateInstructionSt
 	private class MP_INT_UMULT implements OpBehaviorOther {
 
 		@Override
-		public void evaluate(Emulate emu, Varnode outputVarnode, Varnode[] inputs) {
+		public void evaluate(AbstractEmulate emu, Varnode outputVarnode, Varnode[] inputs) {
 			int numArgs = inputs.length - 1;
 			if (numArgs != 2) {
 				throw new LowlevelError("MP_INT_UMULT: requires 2 (Vm, Vn), got " + numArgs);
@@ -1478,7 +1479,7 @@ public class AARCH64EmulateInstructionStateModifier extends EmulateInstructionSt
 	private class SIMD_PIECE implements OpBehaviorOther {
 
 		@Override
-		public void evaluate(Emulate emu, Varnode outputVarnode, Varnode[] inputs) {
+		public void evaluate(AbstractEmulate emu, Varnode outputVarnode, Varnode[] inputs) {
 
 			// Requires 2 inputs
 
@@ -1540,7 +1541,7 @@ public class AARCH64EmulateInstructionStateModifier extends EmulateInstructionSt
 	private class a64_CONCAT implements OpBehaviorOther {
 
 		@Override
-		public void evaluate(Emulate emu, Varnode outputVarnode, Varnode[] inputs) {
+		public void evaluate(AbstractEmulate emu, Varnode outputVarnode, Varnode[] inputs) {
 			int numArgs = inputs.length - 1;
 			if (numArgs != 2) {
 				throw new LowlevelError(this.getClass().getName() + ": requires 2 inputs (Vn, Vm), got " + numArgs);
@@ -1590,7 +1591,7 @@ public class AARCH64EmulateInstructionStateModifier extends EmulateInstructionSt
 	private class a64_TBL implements OpBehaviorOther {
 
 		@Override
-		public void evaluate(Emulate emu, Varnode outputVarnode, Varnode[] inputs) {
+		public void evaluate(AbstractEmulate emu, Varnode outputVarnode, Varnode[] inputs) {
 
 			int numArgs = inputs.length - 1;
 			if (numArgs < 3 || numArgs > 6) {

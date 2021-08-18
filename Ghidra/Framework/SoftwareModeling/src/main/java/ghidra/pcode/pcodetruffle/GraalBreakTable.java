@@ -21,31 +21,29 @@ import com.oracle.truffle.api.instrumentation.ExecutionEventListener;
 import com.oracle.truffle.api.instrumentation.Instrumenter;
 import com.oracle.truffle.api.instrumentation.SourceSectionFilter;
 
-import org.hamcrest.core.IsInstanceOf;
-
-import ghidra.app.plugin.processors.sleigh.SleighLanguage;
+import ghidra.pcode.emulate.AbstractEmulate;
 import ghidra.pcode.emulate.BreakCallBack;
+import ghidra.pcode.emulate.BreakTable;
 import ghidra.pcode.emulate.BreakTableCallBack;
 import ghidra.program.model.address.Address;
 
-public class GrallBreakTableCallback extends BreakTableCallBack implements ExecutionEventListener {
+public class GraalBreakTable implements ExecutionEventListener {
 
-    private final Instrumenter instrumenter;
-    private static final SourceSectionFilter OUR_TAGS_FILTER = SourceSectionFilter.newBuilder().tagIs(
-        PcodeOpLanguage.STATEMENT,
-        PcodeOpLanguage.BLOCK,
-        PcodeOpLanguage.FUNC
+    private static final SourceSectionFilter INST_FILTER = SourceSectionFilter.newBuilder().tagIs(
+        PcodeOpLanguage.STATEMENT
     ).build();
+    private BreakTable breakTable;
 
-    public GrallBreakTableCallback(SleighLanguage language, Instrumenter instrumenter) {
-        super(language);
-        this.instrumenter = instrumenter;
-        instrumenter.attachExecutionEventListener(OUR_TAGS_FILTER, this);
+    public GraalBreakTable(Instrumenter instrumenter) {
+        instrumenter.attachExecutionEventListener(INST_FILTER, this);
     }
 
-    @Override
-    public void registerPcodeCallback(String name, BreakCallBack func) {
-        super.registerPcodeCallback(name, func);
+    public void setBreakTable(BreakTable breakTable) {
+        this.breakTable = breakTable;
+    }
+
+    public void setEmulate(AbstractEmulate emulate) {
+        this.breakTable.setEmulate(emulate);
     }
 
     @Override
@@ -54,20 +52,34 @@ public class GrallBreakTableCallback extends BreakTableCallBack implements Execu
         if (node instanceof PcodeOpNode) {
             PcodeOpNode opNode = (PcodeOpNode) node;
             Address addr = opNode.getAddress();
-            doAddressBreak(addr);
-            // TODO: handling other callbacks
+            breakTable.doAddressBreak(addr);
         }
+        // FIXME: previous implementation of the emulate does not use pcode op break
+        // other than implementing call other. We might just follow that here. But
+        // it is possible that we missed something.
     }
 
     @Override
     public void onReturnValue(EventContext context, VirtualFrame frame, Object result) {
-        // TODO Auto-generated method stub
-        
+        // Not used.
     }
 
     @Override
     public void onReturnExceptional(EventContext context, VirtualFrame frame, Throwable exception) {
-        // TODO Auto-generated method stub
+        // This could happen when breakpoint callback tries to throw control flow exception to
+        // modify control flow.
+
+        // XXX Do we actually need to handle branch exception here?
+        /*
+        if (exception instanceof PcodeOpBranchException) {
+            PcodeOpBranchException e = (PcodeOpBranchException) exception;
+            Node node = context.getInstrumentedNode();
+            if (node instanceof PcodeOpNode) {
+                PcodeOpNode opNode = (PcodeOpNode) node;
+                opNode.getContext().handleBranchException(e);
+            }
+        }
+        */
     }
     
 }

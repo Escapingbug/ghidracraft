@@ -17,6 +17,7 @@ package ghidra.program.emulation;
 
 import java.math.BigInteger;
 
+import ghidra.pcode.emulate.AbstractEmulate;
 import ghidra.pcode.emulate.Emulate;
 import ghidra.pcode.emulate.EmulateInstructionStateModifier;
 import ghidra.pcode.emulate.callother.OpBehaviorOther;
@@ -42,7 +43,7 @@ public class TRICOREEmulateInstructionStateModifier extends EmulateInstructionSt
 	//
 	private class tricore_SaveCallerState implements OpBehaviorOther {
 		@Override
-		public void evaluate(Emulate emu, Varnode outputVarnode, Varnode[] inputs) {
+		public void evaluate(AbstractEmulate emu, Varnode outputVarnode, Varnode[] inputs) {
 			int numArgs = inputs.length - 1;
 			if (numArgs != 3) throw new LowlevelError(this.getClass().getName() + ": requires 3 inputs (FCX, LCX, PCXI), got " + numArgs);
 
@@ -99,7 +100,7 @@ public class TRICOREEmulateInstructionStateModifier extends EmulateInstructionSt
 
 	private class tricore_RestoreCallerState implements OpBehaviorOther {
 		@Override
-		public void evaluate(Emulate emu, Varnode outputVarnode, Varnode[] inputs) {
+		public void evaluate(AbstractEmulate emu, Varnode outputVarnode, Varnode[] inputs) {
 			int numArgs = inputs.length - 1;
 			if (numArgs != 3) throw new LowlevelError(this.getClass().getName() + ": requires 3 inputs (FCX, LCX, PCXI), got " + numArgs);
 

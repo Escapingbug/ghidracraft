@@ -39,7 +39,7 @@ public class BytesPcodeThread extends DefaultPcodeThread<byte[]> {
 		}
 
 		@Override
-		public Language getLanguage() {
+		public SleighLanguage getLanguage() {
 			return language;
 		}
 

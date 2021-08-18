@@ -19,20 +19,33 @@ import com.oracle.truffle.api.CallTarget;
 import com.oracle.truffle.api.Truffle;
 import com.oracle.truffle.api.TruffleRuntime;
 
+import org.apache.commons.io.DirectoryWalker.CancelException;
+import org.graalvm.polyglot.Engine;
+import org.graalvm.polyglot.Instrument;
+
 import ghidra.app.plugin.processors.sleigh.SleighLanguage;
 import ghidra.pcode.emulate.AbstractEmulate;
 import ghidra.pcode.emulate.BreakTable;
 import ghidra.pcode.memstate.MemoryState;
 import ghidra.program.model.address.Address;
+import ghidra.program.model.pcode.PcodeOp;
+import ghidra.util.exception.CancelledException;
+import ghidra.util.task.TaskMonitor;
 
 public class GraalEmulate extends AbstractEmulate {
 
     private TruffleRuntime runtime;
     private PcodeOpContext context;
+    private Engine engine;
 
     public GraalEmulate(SleighLanguage language, MemoryState memState, BreakTable breakTable) {
         super(language, memState, breakTable);
-        this.context = new PcodeOpContext(language, memState, null);
+        this.engine = Engine.create();
+        Instrument instrument = engine.getInstruments().get(GraalBreakTableInstrument.ID);
+        GraalBreakTableInstrument breakTableInstrument = instrument.lookup(GraalBreakTableInstrument.class);
+        breakTableInstrument.setBreakTable(breakTable);
+        breakTable.setEmulate(this);
+        this.context = new PcodeOpContext(this);
         this.runtime = Truffle.getRuntime();
     }
 
@@ -50,6 +63,16 @@ public class GraalEmulate extends AbstractEmulate {
     @Override
     public Address getExecuteAddress() {
         return this.context.getCurrentAddress();
+    }
+
+    public PcodeOp[] emitPcode(Address addr) {
+        return super.emitPcode(addr);
+    }
+
+    public void continueExecution(TaskMonitor monitor) throws CancelledException {
+        this.context.setTaskMonitor(monitor);
+        CallTarget target = runtime.createCallTarget(new PcodeOpRootNode(null, getLanguage(), context));
+        target.call();
     }
 
     public void run() {

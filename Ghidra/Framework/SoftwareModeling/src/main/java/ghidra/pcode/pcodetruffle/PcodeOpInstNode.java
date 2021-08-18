@@ -1,6 +1,5 @@
 /* ###
- * IP: GHIDRA
- * REVIEWED: YES
+ * IP: BinCraft
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package ghidra.pcode.emulate.callother;
+package ghidra.pcode.pcodetruffle;
 
-import ghidra.pcode.emulate.AbstractEmulate;
-import ghidra.program.model.pcode.Varnode;
+import com.oracle.truffle.api.frame.VirtualFrame;
 
-public class OpBehaviorOtherNOP implements OpBehaviorOther {
+import ghidra.program.model.address.Address;
+import ghidra.program.model.pcode.PcodeOp;
 
-	@Override
-	public void evaluate(AbstractEmulate emu, Varnode out, Varnode[] inputs) {
-		// do nothing
-	}
+public abstract class PcodeOpInstNode extends PcodeOpNode {
 
+    protected final PcodeOp pcodeOp;
+
+    public PcodeOpInstNode(final PcodeOp pcodeOp, PcodeOpContext context) {
+        super(context);
+        this.pcodeOp = pcodeOp;
+    }
+
+    @Override
+    public abstract void execute(VirtualFrame frame);
+
+    @Override
+    public abstract Address getAddress();
+    
 }

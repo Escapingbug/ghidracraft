@@ -21,72 +21,61 @@ import ghidra.app.emulator.memory.ProgramMappedMemory;
 import ghidra.app.emulator.memory.ProgramMappedLoadImage;
 import ghidra.app.emulator.state.DumpMiscState;
 import ghidra.app.emulator.state.RegisterState;
+import ghidra.pcode.emulate.BreakCallBack;
 import ghidra.pcode.memstate.MemoryFaultHandler;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.lang.Language;
 import ghidra.program.model.lang.Register;
 import ghidra.program.model.listing.Program;
 import ghidra.util.Msg;
+import ghidra.util.exception.CancelledException;
+import ghidra.util.task.TaskMonitor;
 
-public class GraalEmulatorHelper implements MemoryFaultHandler, EmulatorConfiguration {
+public class GraalEmulatorHelper extends AbstractEmulatorHelper {
 
-    private final Program program;
+    private final GraalEmulator emulator;
+    private boolean atBreakpoint = false;
+    private BreakCallBack addressBreak = new BreakCallBack() {
+		@Override
+		public boolean addressCallback(Address addr) {
+			emulator.setHalt(true);
+            atBreakpoint = true;
+			return true;
+		}
+	};
+
     
     public GraalEmulatorHelper(Program program) {
-        this.program = program;
+        super(program, GraalEmulator.class);
+        this.emulator = (GraalEmulator) super.emulator;
     }
 
     @Override
-    public Language getLanguage() {
-        return program.getLanguage();
+    public boolean isAtBreakpoint() {
+        return atBreakpoint;
     }
 
     @Override
-    public EmulatorLoadData getLoadData() {
-		return new EmulatorLoadData() {
-
-			@Override
-			public MemoryLoadImage getMemoryLoadImage() {
-				return new ProgramMappedLoadImage(
-					new ProgramMappedMemory(program, GraalEmulatorHelper.this));
-			}
-
-			@Override
-			public RegisterState getInitialRegisterState() {
-				return new DumpMiscState(getLanguage());
-			}
-		};
+    public void setBreakpoint(Address addr) {
+        emulator.getBreakTable().registerAddressCallback(addr, addressBreak);
     }
 
     @Override
-    public MemoryFaultHandler getMemoryFaultHandler() {
-        return this;
+    protected void continueExecution(TaskMonitor monitor) throws CancelledException {
+        atBreakpoint = false;
+        emulator.continueExecution(monitor);
     }
 
     @Override
-    public boolean uninitializedRead(Address address, int size, byte[] buf, int bufOffset) {
-        Register reg = program.getRegister(address, size);
-
-        if (reg != null) {
-			Msg.warn(this, "Uninitialized register read at " + reg);
-            return true;
-        }
-        Msg.warn(this,
-			"Uninitialized memory read at " + address.toString(true) + ":" + size);
-        return true;
+    public boolean step(TaskMonitor monitor) throws CancelledException {
+        // TODO: this is a todo yet...
+        throw new RuntimeException("step in graal emulator not yet implemented");
     }
 
     @Override
-    public boolean unknownAddress(Address address, boolean write) {
+    protected boolean isInstructionDecoding() {
+        // TODO: do we need execution state as well?
         return false;
-    }
-
-    public Register getPCRegister() {
-        return program.getLanguage().getProgramCounter();
-    }
-
-    public Register getStackPointerRegister() {
-        return stackptr
     }
     
 }

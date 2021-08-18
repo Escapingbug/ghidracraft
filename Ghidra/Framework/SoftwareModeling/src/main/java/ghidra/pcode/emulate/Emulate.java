@@ -15,25 +15,19 @@
  */
 package ghidra.pcode.emulate;
 
-import java.lang.reflect.Constructor;
 import java.math.BigInteger;
 
 import ghidra.app.plugin.processors.sleigh.SleighLanguage;
 import ghidra.pcode.error.LowlevelError;
 import ghidra.pcode.memstate.MemoryState;
-import ghidra.pcode.memstate.UniqueMemoryBank;
 import ghidra.pcode.opbehavior.*;
 import ghidra.pcode.pcoderaw.PcodeOpRaw;
-import ghidra.program.disassemble.Disassembler;
 import ghidra.program.model.address.*;
 import ghidra.program.model.lang.*;
-import ghidra.program.model.listing.Instruction;
 import ghidra.program.model.pcode.PcodeOp;
 import ghidra.program.model.pcode.Varnode;
-import ghidra.util.Msg;
 import ghidra.util.exception.CancelledException;
 import ghidra.util.task.TaskMonitor;
-import ghidra.util.task.TaskMonitorAdapter;
 /// \brief A SLEIGH based implementation of the Emulate interface
 ///
 /// This implementation uses a Translate object to translate machine instructions into
@@ -49,20 +43,12 @@ public class Emulate extends AbstractEmulate {
 	private RuntimeException faultCause;
 	private int currentOp; ///< Index of current pcode op within machine instruction
 	private int lastOp; /// index of last pcode op executed
-	private int instructionLength; ///< Length of current instruction in bytes (must include any delay slots)
 
 	private Register pcReg;
 
-	private InstructionBlock lastPseudoInstructionBlock;
-	private Disassembler pseudoDisassembler;
-	private Instruction pseudoInstruction;
+	
 	private PcodeOp[] pcode; ///< The cache of current pcode ops
 
-	private RegisterValue nextContextRegisterValue = null;
-
-	private EmulateMemoryStateBuffer memBuffer; // used for instruction parsing
-
-	private EmulateInstructionStateModifier instructionStateModifier;
 
 	/// \param t is the SLEIGH translator
 	/// \param s is the MemoryState the emulator should manipulate
@@ -71,13 +57,7 @@ public class Emulate extends AbstractEmulate {
 		super(language, memState, breakTable);
 		pcReg = language.getProgramCounter();
 		breakTable.setEmulate(this);
-		memBuffer =
-			new EmulateMemoryStateBuffer(memState, getAddrFactory().getDefaultAddressSpace().getMinAddress());
-
-//		emitterContext = new EmulateDisassemblerContext(lang, s);
-
-		pseudoDisassembler =
-			Disassembler.getDisassembler(language, getAddrFactory(), TaskMonitorAdapter.DUMMY_MONITOR, null);
+		
 	}
 
 	public void dispose() {
@@ -117,95 +97,6 @@ public class Emulate extends AbstractEmulate {
 	}
 
 	/**
-	 * Get length of instruction including any delay-slotted instructions.
-	 * Must be called by emitPcode with lastPseudoInstructionBlock properly set.
-	 * @param instr
-	 * @return length of instruction in bytes for use in computing fall-through location
-	 */
-	private int getInstructionLength(Instruction instr) throws InstructionDecodeException {
-		int length = instr.getLength();
-		int delaySlots = instr.getDelaySlotDepth();
-		while (delaySlots != 0) {
-			try {
-				Address nextAddr = instr.getAddress().addNoWrap(instr.getLength());
-				Instruction nextInstr = lastPseudoInstructionBlock.getInstructionAt(nextAddr);
-				if (nextInstr == null) {
-					throw new InstructionDecodeException("Failed to parse delay slot instruction",
-						nextAddr);
-				}
-				instr = nextInstr;
-				length += instr.getLength();
-				--delaySlots;
-			}
-			catch (AddressOverflowException e) {
-				throw new InstructionDecodeException(
-					"Failed to parse delay slot instruction at end of address space",
-					instr.getAddress());
-			}
-		}
-		return length;
-	}
-
-	private PcodeOp[] emitPcode(Address addr) throws InstructionDecodeException {
-
-		memBuffer.setAddress(addr);
-		pcode = null;
-		pseudoInstruction = null;
-
-		if (lastPseudoInstructionBlock != null) {
-			pseudoInstruction = lastPseudoInstructionBlock.getInstructionAt(addr);
-			if (pseudoInstruction != null) {
-				instructionLength = getInstructionLength(pseudoInstruction);
-				return pseudoInstruction.getPcode(false);
-			}
-
-			InstructionError error = lastPseudoInstructionBlock.getInstructionConflict();
-			if (error != null && addr.equals(error.getInstructionAddress())) {
-				throw new InstructionDecodeException(error.getConflictMessage(), addr);
-			}
-
-		}
-
-		lastPseudoInstructionBlock =
-			pseudoDisassembler.pseudoDisassembleBlock(memBuffer, nextContextRegisterValue, 1);
-		nextContextRegisterValue = null;
-		if (lastPseudoInstructionBlock != null) {
-			pseudoInstruction = lastPseudoInstructionBlock.getInstructionAt(addr);
-			if (pseudoInstruction != null) {
-				instructionLength = getInstructionLength(pseudoInstruction);
-				return pseudoInstruction.getPcode(false);
-			}
-			InstructionError error = lastPseudoInstructionBlock.getInstructionConflict();
-			if (error != null && addr.equals(error.getInstructionAddress())) {
-				throw new InstructionDecodeException(error.getConflictMessage(), addr);
-			}
-		}
-
-		throw new InstructionDecodeException("unknown reason", addr);
-	}
-
-	/**
-	 * Returns the current context register value.  The context value returned reflects
-	 * its state when the previously executed instruction was 
-	 * parsed/executed.  The context value returned will feed into the next 
-	 * instruction to be parsed with its non-flowing bits cleared and
-	 * any future context state merged in.  If no instruction has been executed,
-	 * the explicitly set context will be returned.  A null value is returned
-	 * if no context register is defined by the language or initial context has 
-	 * not been set.
-	 */
-	public RegisterValue getContextRegisterValue() {
-		Register contextReg = getLanguage().getContextBaseRegister();
-		if (contextReg == null) {
-			return null;
-		}
-		if (pseudoInstruction != null) {
-			return pseudoInstruction.getRegisterValue(contextReg);
-		}
-		return nextContextRegisterValue;
-	}
-
-	/**
 	 * Sets the context register value at the current execute address.
 	 * The Emulator should not be running when this method is invoked.
 	 * Only flowing context bits should be set, as non-flowing bits
@@ -221,25 +112,8 @@ public class Emulate extends AbstractEmulate {
 			executionState != EmulateExecutionState.BREAKPOINT) {
 			throw new IllegalStateException("emulator is not STOPPED");
 		}
-		if (regValue != null) {
-			Register reg = regValue.getRegister();
-			if (!reg.isProcessorContext()) {
-				throw new IllegalArgumentException("processor context register required");
-			}
-			if (!reg.isBaseRegister()) {
-				regValue = regValue.getBaseRegisterValue();
-				reg = regValue.getRegister();
-				if (nextContextRegisterValue != null) {
-					regValue = nextContextRegisterValue.combineValues(regValue);
-				}
-			}
-			if (!reg.equals(getLanguage().getContextBaseRegister())) {
-				throw new IllegalArgumentException("invalid processor context register");
-			}
-		}
-		nextContextRegisterValue = regValue;
-		lastPseudoInstructionBlock = null;
-		pseudoInstruction = null;
+
+		super.setContextRegisterValue(regValue);
 	}
 
 	/// Update the iterator into the current pcode cache, and if necessary, generate

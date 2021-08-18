@@ -24,26 +24,21 @@ import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.nodes.RootNode;
 
 import ghidra.app.plugin.processors.sleigh.SleighLanguage;
-import ghidra.pcode.emulate.EmulateMemoryStateBuffer;
+import ghidra.pcode.emulate.BreakTable;
+import ghidra.pcode.emulate.EmulateInstructionStateModifier;
 import ghidra.pcode.emulate.UnimplementedCallOtherException;
 import ghidra.pcode.memstate.MemoryState;
 import ghidra.pcode.pcoderaw.PcodeOpRaw;
-import ghidra.program.disassemble.Disassembler;
 import ghidra.program.model.address.Address;
-import ghidra.program.model.address.AddressFactory;
 import ghidra.program.model.address.AddressSpace;
-import ghidra.program.model.lang.InstructionBlock;
 import ghidra.program.model.lang.Register;
 import ghidra.program.model.pcode.PcodeOp;
-import ghidra.util.task.TaskMonitorAdapter;
 
 public class PcodeOpRootNode extends RootNode {
 
-    private Disassembler disassembler;
     private Register pcRegister;
     private SleighLanguage lang;
     private PcodeOpLanguage pcodeOpLanguage;
-    private AddressFactory addrFactory;
     private MemoryState state;
     private HashMap<Address, PcodeOpBlockNode> blocks;
     private PcodeOpContext context;
@@ -54,10 +49,8 @@ public class PcodeOpRootNode extends RootNode {
         this.context = context;
         this.pcodeOpLanguage = pcodeOpLanguage;
 
-        this.addrFactory = getContext().getAddressFactory();
         this.state = getContext().getMemoryState();
         this.blocks = getContext().getBlockCache();
-        this.disassembler = Disassembler.getDisassembler(lang, addrFactory, TaskMonitorAdapter.DUMMY, null);
         this.lang = lang;
         this.pcRegister = lang.getProgramCounter();
     }
@@ -75,16 +68,11 @@ public class PcodeOpRootNode extends RootNode {
     }
 
     private PcodeOpBlockNode newBlockNode(Address blockEntry) {
-        EmulateMemoryStateBuffer memBuffer = new EmulateMemoryStateBuffer(state, blockEntry);
-        InstructionBlock instBlock = disassembler.pseudoDisassembleBlock(memBuffer, null, Integer.MAX_VALUE);
         Vector<PcodeOpNode> ops = new Vector<PcodeOpNode>();
-        for (var inst : instBlock) {
-            for (var pcode : inst.getPcode()) {
-                PcodeOpNode node = PcodeOpNodeFactory.createNodeFromPcodeOp(pcode, getContext());
-                ops.add(node);
-            }
+        for (PcodeOp pcode : getContext().emitPcode(blockEntry)) {
+            PcodeOpNode node = PcodeOpNodeFactory.createNodeFromPcodeOp(pcode, getContext());
+            ops.add(node);
         }
-
         return new PcodeOpBlockNode(ops, getContext());
     }
 
@@ -142,6 +130,64 @@ public class PcodeOpRootNode extends RootNode {
 		throw new PcodeOpReturnException(space.getTruncatedAddress(offset, true));
     }
 
+    private void executeCallother(PcodeOp op) {
+        EmulateInstructionStateModifier instructionStateModifier = getContext().getInstructionStateModifier();
+        BreakTable breakTable = getContext().getBreaktable();
+        PcodeOpRaw opRaw = new PcodeOpRaw(op);
+        if ((instructionStateModifier == null || !instructionStateModifier.executeCallOther(op)) &&
+            !breakTable.doPcodeOpBreak(opRaw)) {
+            int userOp = (int) op.getInput(0).getOffset();
+            String pcodeOpName = getContext().getSleighLanguage().getUserDefinedOpName(userOp);
+            throw new UnimplementedCallOtherException(opRaw, pcodeOpName);
+        }
+    }
+
+    protected void handleBranchException(PcodeOpBranchException e) {
+        PcodeOp op = e.getOp();
+
+        switch (op.getOpcode()) {
+            case PcodeOp.BRANCH: {
+                executeBranch(op);
+                break;
+            }
+
+            case PcodeOp.CBRANCH: {
+                // only taken branch should throw branch exception
+                executeBranch(op);
+                break;
+            }
+
+            case PcodeOp.BRANCHIND: {
+                executeBranchind(op);
+                break;
+            }
+
+            case PcodeOp.CALL: {
+                executeCall(op);
+                break;
+            }
+
+            case PcodeOp.CALLIND: {
+                executeCallind(op);
+                break;
+            }
+
+            case PcodeOp.CALLOTHER: {
+                executeCallother(op);
+                break;
+            }
+
+            case PcodeOp.RETURN: {
+                executeReturn(op);
+                break;
+            }
+
+            default: {
+                throw new RuntimeException("unknown branch pcode " + op.toString());
+            }
+        }
+    }
+
     @Override
     public Object execute(VirtualFrame frame) {
         while (true) {
@@ -154,51 +200,8 @@ public class PcodeOpRootNode extends RootNode {
 
             try {
                 block.execute(frame);
-
             } catch (PcodeOpBranchException e) {
-                PcodeOp op = e.getOp();
-
-                switch (op.getOpcode()) {
-                    case PcodeOp.BRANCH: {
-                        executeBranch(op);
-                        break;
-                    }
-
-                    case PcodeOp.CBRANCH: {
-                        // only taken branch should throw branch exception
-                        executeBranch(op);
-                        break;
-                    }
-
-                    case PcodeOp.BRANCHIND: {
-                        executeBranchind(op);
-                        break;
-                    }
-
-                    case PcodeOp.CALL: {
-                        executeCall(op);
-                        break;
-                    }
-
-                    case PcodeOp.CALLIND: {
-                        executeCallind(op);
-                        break;
-                    }
-
-                    case PcodeOp.CALLOTHER: {
-                        // TODO
-                        throw new UnimplementedCallOtherException(new PcodeOpRaw(op), lang.getUserDefinedOpName((int) op.getInput(0).getOffset()));
-                    }
-
-                    case PcodeOp.RETURN: {
-                        executeReturn(op);
-                        break;
-                    }
-
-                    default: {
-                        throw new RuntimeException("unknown branch pcode " + op.toString());
-                    }
-                }
+                handleBranchException(e);
             }
         }
     }

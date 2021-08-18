@@ -586,7 +586,7 @@ public class EmulatorTestRunner {
 		@Override
 		protected void processRead(AddressSpace spc, long off, int size, byte[] values) {
 			if (enabled &&
-				emu.getEmulateExecutionState() != EmulateExecutionState.INSTRUCTION_DECODE) {
+				!emu.isInstructionDecoding()) {
 				executionListener.logRead(EmulatorTestRunner.this, spc.getAddress(off), size,
 					values);
 			}

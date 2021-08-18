@@ -18,6 +18,7 @@ package ghidra.pcode.pcodetruffle;
 import java.math.BigInteger;
 
 import com.oracle.truffle.api.frame.VirtualFrame;
+import com.oracle.truffle.api.instrumentation.Tag;
 
 import ghidra.program.model.address.Address;
 import ghidra.program.model.pcode.PcodeOp;
@@ -74,4 +75,11 @@ public class PcodeOpBranchNode extends PcodeOpNode {
         return this.pcodeOp.getSeqnum().getTarget();
     }
     
+    @Override
+    public boolean hasTag(Class<? extends Tag> tag) {
+        if (tag == PcodeOpLanguage.STATEMENT) {
+            return true;
+        }
+        return false;
+    }
 }
