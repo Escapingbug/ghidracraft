@@ -36,8 +36,9 @@ public class EmulatorHelper extends AbstractEmulatorHelper {
 	};
 
     public EmulatorHelper(Program program) {
-        super(program, Emulator.class);
-        this.emulator = ((Emulator)super.emulator);
+        super(program);
+        this.emulator = new Emulator(this);
+		super.initEmulator(emulator);
     }
 
     /**

@@ -204,9 +204,9 @@ public class OSGiUtils {
 			walk.filter(p -> p.toString().endsWith(".class")).forEach(path -> {
 				String relativePath = dirPath.relativize(path).toString();
 				int lastSlash = relativePath.lastIndexOf(File.separatorChar);
-				packages.add(lastSlash > 0
-						? relativePath.substring(0, lastSlash).replace(File.separatorChar, '.')
-						: "");
+				if (lastSlash > 0) {
+					packages.add(relativePath.substring(0, lastSlash).replace(File.separatorChar, '.'));
+				}
 			});
 		}
 		catch (IOException e) {

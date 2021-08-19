@@ -15,6 +15,9 @@
  */
 package ghidra.app.emulator;
 
+import ghidra.app.plugin.processors.sleigh.SleighLanguage;
+import ghidra.pcode.emulate.BreakTableCallBack;
+import ghidra.pcode.memstate.MemoryState;
 import ghidra.pcode.pcodetruffle.GraalEmulate;
 import ghidra.pcode.pcodetruffle.PcodeOpReturnException;
 import ghidra.program.model.address.Address;
@@ -24,10 +27,14 @@ import ghidra.util.exception.CancelledException;
 import ghidra.util.task.TaskMonitor;
 
 public class GraalEmulator extends AbstractEmulator {
-	private final GraalEmulate emulate;
+	private GraalEmulate emulate;
 
     public GraalEmulator(EmulatorConfiguration cfg) {
 		super(cfg);
+	}
+
+	@Override
+	protected void initEmulator(SleighLanguage language, MemoryState memState, BreakTableCallBack breakTable) {
 		this.emulate = new GraalEmulate(language, memState, breakTable);
 	}
 

@@ -17,10 +17,13 @@ package ghidra.app.emulator;
 
 import java.util.List;
 
+import ghidra.app.plugin.processors.sleigh.SleighLanguage;
+import ghidra.pcode.emulate.BreakTableCallBack;
 import ghidra.pcode.emulate.Emulate;
 import ghidra.pcode.emulate.EmulateExecutionState;
 import ghidra.pcode.emulate.InstructionDecodeException;
 import ghidra.pcode.error.LowlevelError;
+import ghidra.pcode.memstate.MemoryState;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressSpace;
 import ghidra.program.model.lang.RegisterValue;
@@ -34,8 +37,13 @@ public class Emulator extends AbstractEmulator {
 
     public Emulator(EmulatorConfiguration cfg) {
         super(cfg);
-        emulator = new Emulate(language, memState, breakTable);
     }
+
+	@Override
+	protected void initEmulator(SleighLanguage language, MemoryState memState, BreakTableCallBack breakTable) {
+        emulator = new Emulate(language, memState, breakTable);
+	}
+ 
 
     @Override
     public void setExecuteAddress(long addressableWordOffset) {
@@ -131,5 +139,5 @@ public class Emulator extends AbstractEmulator {
 	public boolean isInstructionDecoding() {
 		return emulator.getExecutionState() == EmulateExecutionState.INSTRUCTION_DECODE;
 	}
-    
+   
 }

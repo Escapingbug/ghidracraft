@@ -84,7 +84,8 @@ public abstract class AbstractEmulator {
 		initMemState(mstate);
 
 		breakTable = new BreakTableCallBack(language);
-		//emulator = new Emulate(language, memState, breakTable);
+		initEmulator(language, memState, breakTable);
+
 
 		try {
 			setExecuteAddress(initialPC);
@@ -93,6 +94,8 @@ public abstract class AbstractEmulator {
 			Msg.warn(this, "pc is unmappable -- no execution possible");
 		}
 	}
+
+	protected abstract void initEmulator(SleighLanguage language, MemoryState memState, BreakTableCallBack breakTable);
 
 	/**
 	 * Get the page size to use with a specific AddressSpace. The page containers (MemoryBank)

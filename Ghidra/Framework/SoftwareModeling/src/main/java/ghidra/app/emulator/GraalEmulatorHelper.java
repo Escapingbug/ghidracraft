@@ -46,8 +46,9 @@ public class GraalEmulatorHelper extends AbstractEmulatorHelper {
 
     
     public GraalEmulatorHelper(Program program) {
-        super(program, GraalEmulator.class);
-        this.emulator = (GraalEmulator) super.emulator;
+        super(program);
+        this.emulator = new GraalEmulator(this);
+        super.initEmulator(emulator);
     }
 
     @Override

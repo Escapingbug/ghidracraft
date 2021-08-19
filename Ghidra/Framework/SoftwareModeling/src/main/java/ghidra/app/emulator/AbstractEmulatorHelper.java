@@ -40,7 +40,8 @@ import ghidra.util.task.TaskMonitor;
 public abstract class AbstractEmulatorHelper implements MemoryFaultHandler, EmulatorConfiguration {
 
 	private final Program program;
-	protected final AbstractEmulator emulator;
+	private AbstractEmulator emulator;
+	private boolean emulatorInited = false;
 
 	private Register stackPtrReg;
 	private AddressSpace stackMemorySpace;
@@ -59,9 +60,13 @@ public abstract class AbstractEmulatorHelper implements MemoryFaultHandler, Emul
 		}
 	};*/
 
+	/**
+	 * Init of an common emulator helper.
+	 * WARNING! You have to set the emulator YOURSELF after calling this. (by initEmulator)
+	 * @param program
+	 */
 	public AbstractEmulatorHelper(
-		Program program,
-		Class<? extends AbstractEmulator> emulatorClass
+		Program program
 	) {
 
 		this.program = program;
@@ -69,18 +74,25 @@ public abstract class AbstractEmulatorHelper implements MemoryFaultHandler, Emul
 		stackPtrReg = program.getCompilerSpec().getStackPointer();
 		stackMemorySpace = program.getCompilerSpec().getStackBaseSpace();
 
-		try {
-			this.emulator = emulatorClass.getDeclaredConstructor(EmulatorConfiguration.class)
-				.newInstance(this);
-		} catch (Exception e) {
-			throw new RuntimeException("abstract emulator helper not setting up (implement error)");
-		}
+		this.emulator = null;
 
 		converter = DataConverter.getInstance(program.getMemory().isBigEndian());
 	}
 
+	public void initEmulator(AbstractEmulator emulator) {
+		this.emulator = emulator;
+	}
+
+	protected AbstractEmulator getEmulator() {
+		if (emulatorInited) {
+			return this.emulator;
+		} else {
+			throw new IllegalAccessError("initEmulator is not called after initialize AbstractEmulatorHelper");
+		}
+	}
+
 	public void dispose() {
-		emulator.dispose();
+		getEmulator().dispose();
 		if (memoryWriteTracker != null) {
 			memoryWriteTracker.dispose();
 			memoryWriteTracker = null;
@@ -160,16 +172,16 @@ public abstract class AbstractEmulatorHelper implements MemoryFaultHandler, Emul
 
 	public BigInteger readRegister(Register reg) {
 		if (reg.isProcessorContext()) {
-			RegisterValue contextRegisterValue = emulator.getContextRegisterValue();
+			RegisterValue contextRegisterValue = getEmulator().getContextRegisterValue();
 			if (!reg.equals(contextRegisterValue.getRegister())) {
 				contextRegisterValue = contextRegisterValue.getRegisterValue(reg);
 			}
 			return contextRegisterValue.getSignedValueIgnoreMask();
 		}
-		if (reg.getName().equals(emulator.getPCRegisterName())) {
-			return BigInteger.valueOf(emulator.getPC());
+		if (reg.getName().equals(getEmulator().getPCRegisterName())) {
+			return BigInteger.valueOf(getEmulator().getPC());
 		}
-		return emulator.getMemState().getBigInteger(reg);
+		return getEmulator().getMemState().getBigInteger(reg);
 	}
 
 	public BigInteger readRegister(String regName) {
@@ -191,16 +203,16 @@ public abstract class AbstractEmulatorHelper implements MemoryFaultHandler, Emul
 	public void writeRegister(Register reg, BigInteger value) {
 		if (reg.isProcessorContext()) {
 			RegisterValue contextRegisterValue = new RegisterValue(reg, value);
-			RegisterValue existingRegisterValue = emulator.getContextRegisterValue();
+			RegisterValue existingRegisterValue = getEmulator().getContextRegisterValue();
 			if (!reg.equals(existingRegisterValue.getRegister())) {
 				contextRegisterValue = existingRegisterValue.combineValues(contextRegisterValue);
 			}
-			emulator.setContextRegisterValue(contextRegisterValue);
+			getEmulator().setContextRegisterValue(contextRegisterValue);
 			return;
 		}
-		emulator.getMemState().setValue(reg, value);
-		if (reg.getName().equals(emulator.getPCRegisterName())) {
-			emulator.setExecuteAddress(value.longValue());
+		getEmulator().getMemState().setValue(reg, value);
+		if (reg.getName().equals(getEmulator().getPCRegisterName())) {
+			getEmulator().setExecuteAddress(value.longValue());
 		}
 	}
 
@@ -241,7 +253,7 @@ public abstract class AbstractEmulatorHelper implements MemoryFaultHandler, Emul
 
 	public byte[] readMemory(Address addr, int length) {
 		byte[] res = new byte[length];
-		int len = emulator.getMemState().getChunk(res, addr.getAddressSpace(), addr.getOffset(),
+		int len = getEmulator().getMemState().getChunk(res, addr.getAddressSpace(), addr.getOffset(),
 			length, false);
 		if (len == 0) {
 			Msg.error(this, "Failed to read memory from Emulator at: " + addr);
@@ -255,12 +267,12 @@ public abstract class AbstractEmulatorHelper implements MemoryFaultHandler, Emul
 	}
 
 	public void writeMemory(Address addr, byte[] bytes) {
-		emulator.getMemState().setChunk(bytes, addr.getAddressSpace(), addr.getOffset(),
+		getEmulator().getMemState().setChunk(bytes, addr.getAddressSpace(), addr.getOffset(),
 			bytes.length);
 	}
 
 	public void writeMemoryValue(Address addr, int size, long value) {
-		emulator.getMemState().setValue(addr.getAddressSpace(), addr.getOffset(), size, value);
+		getEmulator().getMemState().setValue(addr.getAddressSpace(), addr.getOffset(), size, value);
 	}
 
 	/**
@@ -317,7 +329,7 @@ public abstract class AbstractEmulatorHelper implements MemoryFaultHandler, Emul
 	 * @param addr memory address for breakpoint to be cleared
 	 */
 	public void clearBreakpoint(Address addr) {
-		emulator.getBreakTable().unregisterAddressCallback(addr);
+		getEmulator().getBreakTable().unregisterAddressCallback(addr);
 	}
 
 	/**
@@ -326,7 +338,7 @@ public abstract class AbstractEmulatorHelper implements MemoryFaultHandler, Emul
 	 * @param ctxRegValue
 	 */
 	public void setContextRegister(RegisterValue ctxRegValue) {
-		emulator.setContextRegisterValue(ctxRegValue);
+		getEmulator().setContextRegisterValue(ctxRegValue);
 	}
 
 	/**
@@ -336,7 +348,7 @@ public abstract class AbstractEmulatorHelper implements MemoryFaultHandler, Emul
 	 * @param value context value
 	 */
 	public void setContextRegister(Register ctxReg, BigInteger value) {
-		emulator.setContextRegisterValue(new RegisterValue(ctxReg, value));
+		getEmulator().setContextRegisterValue(new RegisterValue(ctxReg, value));
 	}
 
 	/**
@@ -344,7 +356,7 @@ public abstract class AbstractEmulatorHelper implements MemoryFaultHandler, Emul
 	 * @return context register value or null if not set or unknown
 	 */
 	public RegisterValue getContextRegister() {
-		return emulator.getContextRegisterValue();
+		return getEmulator().getContextRegisterValue();
 	}
 
 	/**
@@ -355,7 +367,7 @@ public abstract class AbstractEmulatorHelper implements MemoryFaultHandler, Emul
 	 * @param callback the callback to register
 	 */
 	public void registerCallOtherCallback(String pcodeOpName, BreakCallBack callback) {
-		emulator.getBreakTable().registerPcodeCallback(pcodeOpName, callback);
+		getEmulator().getBreakTable().registerPcodeCallback(pcodeOpName, callback);
 	}
 
 	/**
@@ -365,7 +377,7 @@ public abstract class AbstractEmulatorHelper implements MemoryFaultHandler, Emul
 	 * @param callback the default callback to register
 	 */
 	public void registerDefaultCallOtherCallback(BreakCallBack callback) {
-		emulator.getBreakTable().registerPcodeCallback("*", callback);
+		getEmulator().getBreakTable().registerPcodeCallback("*", callback);
 	}
 
 	/**
@@ -373,7 +385,7 @@ public abstract class AbstractEmulatorHelper implements MemoryFaultHandler, Emul
 	 * @param pcodeOpName the name of the pcode op
 	 */
 	public void unregisterCallOtherCallback(String pcodeOpName) {
-		emulator.getBreakTable().unregisterPcodeCallback(pcodeOpName);
+		getEmulator().getBreakTable().unregisterPcodeCallback(pcodeOpName);
 	}
 
 	/**
@@ -382,7 +394,7 @@ public abstract class AbstractEmulatorHelper implements MemoryFaultHandler, Emul
 	 * when supplied by the Processor module.
 	 */
 	public void unregisterDefaultCallOtherCallback() {
-		emulator.getBreakTable().unregisterPcodeCallback("*");
+		getEmulator().getBreakTable().unregisterPcodeCallback("*");
 	}
 
 	/**
@@ -390,7 +402,7 @@ public abstract class AbstractEmulatorHelper implements MemoryFaultHandler, Emul
 	 * @return current execution address
 	 */
 	public Address getExecutionAddress() {
-		return emulator.getExecuteAddress();
+		return getEmulator().getExecuteAddress();
 	}
 
 	public abstract boolean isAtBreakpoint();
@@ -410,7 +422,7 @@ public abstract class AbstractEmulatorHelper implements MemoryFaultHandler, Emul
 	public boolean run(Address addr, ProcessorContext context, TaskMonitor monitor)
 			throws CancelledException {
 
-		if (emulator.isExecuting()) {
+		if (getEmulator().isExecuting()) {
 			throw new IllegalStateException("Emulator is already running");
 		}
 
@@ -451,7 +463,7 @@ public abstract class AbstractEmulatorHelper implements MemoryFaultHandler, Emul
 		}
 
 		long pcValue = addr.getAddressableWordOffset();
-		emulator.setExecuteAddress(pcValue);
+		getEmulator().setExecuteAddress(pcValue);
 
 		if (mustSetContextReg) {
 			setContextRegister(contextRegValue);
@@ -472,7 +484,7 @@ public abstract class AbstractEmulatorHelper implements MemoryFaultHandler, Emul
 	 */
 	public synchronized boolean run(TaskMonitor monitor) throws CancelledException {
 
-		if (emulator.isExecuting()) {
+		if (getEmulator().isExecuting()) {
 			throw new IllegalStateException("Emulator is already running");
 		}
 		continueExecution(monitor);
@@ -493,17 +505,17 @@ public abstract class AbstractEmulatorHelper implements MemoryFaultHandler, Emul
 	protected void setProcessorContext() {
 		// this assumes you have set the emulation address
 		//   the emu will have cleared the context for the new address
-		RegisterValue contextRegisterValue = emulator.getContextRegisterValue();
+		RegisterValue contextRegisterValue = getEmulator().getContextRegisterValue();
 		if (contextRegisterValue != null) {
 			return;
 		}
 
-		Address executeAddress = emulator.getExecuteAddress();
+		Address executeAddress = getEmulator().getExecuteAddress();
 		Instruction instructionAt = program.getListing().getInstructionAt(executeAddress);
 		if (instructionAt != null) {
 			RegisterValue disassemblyContext =
 				instructionAt.getRegisterValue(instructionAt.getBaseContextRegister());
-			emulator.setContextRegisterValue(disassemblyContext);
+			getEmulator().setContextRegisterValue(disassemblyContext);
 		}
 	}
 
@@ -531,13 +543,13 @@ public abstract class AbstractEmulatorHelper implements MemoryFaultHandler, Emul
 			final int length, boolean overlay, TaskMonitor monitor) throws MemoryConflictException,
 			AddressOverflowException, CancelledException, LockException, DuplicateNameException {
 
-		if (emulator.isExecuting()) {
+		if (getEmulator().isExecuting()) {
 			throw new IllegalStateException("Emulator must be paused to access memory state");
 		}
 
 		InputStream memStateStream = new InputStream() {
 
-			private MemoryState memState = emulator.getMemState();
+			private MemoryState memState = getEmulator().getMemState();
 
 			private byte[] buffer = new byte[1024];
 			private long nextBufferOffset = start.getOffset();
@@ -595,7 +607,7 @@ public abstract class AbstractEmulatorHelper implements MemoryFaultHandler, Emul
 		}
 
 		memoryWriteTracker = new MemoryWriteTracker();
-		emulator.addMemoryAccessFilter(memoryWriteTracker);
+		getEmulator().addMemoryAccessFilter(memoryWriteTracker);
 	}
 
 	/**
@@ -633,7 +645,7 @@ public abstract class AbstractEmulatorHelper implements MemoryFaultHandler, Emul
 		if (faultHandler != null) {
 			return faultHandler.unknownAddress(address, write);
 		}
-		Address pc = emulator.getExecuteAddress();
+		Address pc = getEmulator().getExecuteAddress();
 		String access = write ? "written" : "read";
 		Msg.warn(this, "Unknown address " + access + " at " + pc + ": " + address);
 		return false;
@@ -649,7 +661,7 @@ public abstract class AbstractEmulatorHelper implements MemoryFaultHandler, Emul
 		if (isInstructionDecoding()) {
 			return false;
 		}
-		Address pc = emulator.getExecuteAddress();
+		Address pc = getEmulator().getExecuteAddress();
 		Register reg = program.getRegister(address, size);
 		if (reg != null) {
 			Msg.warn(this, "Uninitialized register read at " + pc + ": " + reg);
