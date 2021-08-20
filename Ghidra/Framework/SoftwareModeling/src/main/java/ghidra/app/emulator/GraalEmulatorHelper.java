@@ -15,31 +15,22 @@
  */
 package ghidra.app.emulator;
 
-import ghidra.app.emulator.memory.EmulatorLoadData;
-import ghidra.app.emulator.memory.MemoryLoadImage;
-import ghidra.app.emulator.memory.ProgramMappedMemory;
-import ghidra.app.emulator.memory.ProgramMappedLoadImage;
-import ghidra.app.emulator.state.DumpMiscState;
-import ghidra.app.emulator.state.RegisterState;
+
 import ghidra.pcode.emulate.BreakCallBack;
-import ghidra.pcode.memstate.MemoryFaultHandler;
+import ghidra.pcode.pcodetruffle.PcodeOpContext;
 import ghidra.program.model.address.Address;
-import ghidra.program.model.lang.Language;
-import ghidra.program.model.lang.Register;
 import ghidra.program.model.listing.Program;
-import ghidra.util.Msg;
 import ghidra.util.exception.CancelledException;
 import ghidra.util.task.TaskMonitor;
 
 public class GraalEmulatorHelper extends AbstractEmulatorHelper {
 
     private final GraalEmulator emulator;
-    private boolean atBreakpoint = false;
     private BreakCallBack addressBreak = new BreakCallBack() {
 		@Override
 		public boolean addressCallback(Address addr) {
 			emulator.setHalt(true);
-            atBreakpoint = true;
+            getContext().setAtBreakpoint(true);
 			return true;
 		}
 	};
@@ -51,9 +42,13 @@ public class GraalEmulatorHelper extends AbstractEmulatorHelper {
         super.initEmulator(emulator);
     }
 
+    public PcodeOpContext getContext() {
+        return this.emulator.getContext();
+    }
+
     @Override
     public boolean isAtBreakpoint() {
-        return atBreakpoint;
+        return getContext().isAtBreakpoint();
     }
 
     @Override
@@ -63,7 +58,6 @@ public class GraalEmulatorHelper extends AbstractEmulatorHelper {
 
     @Override
     protected void continueExecution(TaskMonitor monitor) throws CancelledException {
-        atBreakpoint = false;
         emulator.continueExecution(monitor);
     }
 

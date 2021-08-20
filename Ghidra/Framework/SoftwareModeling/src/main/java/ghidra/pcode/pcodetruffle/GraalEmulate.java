@@ -15,13 +15,15 @@
  */
 package ghidra.pcode.pcodetruffle;
 
-import com.oracle.truffle.api.CallTarget;
+import java.io.IOException;
+
 import com.oracle.truffle.api.Truffle;
 import com.oracle.truffle.api.TruffleRuntime;
 
-import org.apache.commons.io.DirectoryWalker.CancelException;
+import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.Engine;
 import org.graalvm.polyglot.Instrument;
+import org.graalvm.polyglot.Source;
 
 import ghidra.app.plugin.processors.sleigh.SleighLanguage;
 import ghidra.pcode.emulate.AbstractEmulate;
@@ -37,15 +39,20 @@ public class GraalEmulate extends AbstractEmulate {
     private TruffleRuntime runtime;
     private PcodeOpContext context;
     private Engine engine;
+    private Context graalContext;
 
     public GraalEmulate(SleighLanguage language, MemoryState memState, BreakTable breakTable) {
         super(language, memState, breakTable);
-        this.engine = Engine.create();
+        graalContext = Context.newBuilder(PcodeOpLanguage.ID).allowAllAccess(true).build();
+        graalContext.enter();
+        this.engine = graalContext.getEngine();
         Instrument instrument = engine.getInstruments().get(GraalBreakTableInstrument.ID);
-        GraalBreakTableInstrument breakTableInstrument = instrument.lookup(GraalBreakTableInstrument.class);
-        breakTableInstrument.setBreakTable(breakTable);
-        breakTable.setEmulate(this);
-        this.context = new PcodeOpContext(this);
+        GraalBreakTable graalBreakTable = instrument.lookup(GraalBreakTable.class);
+        graalBreakTable.setBreakTable(breakTable);
+        graalBreakTable.setEmulate(this);
+        PcodeOpLanguage.setEmulate(this);
+        graalContext.initialize(PcodeOpLanguage.ID);
+        this.context = PcodeOpLanguage.getCachedContext();
         this.runtime = Truffle.getRuntime();
     }
 
@@ -53,6 +60,14 @@ public class GraalEmulate extends AbstractEmulate {
         super(context.getSleighLanguage(), context.getMemoryState(), breakTable);
         this.context = context;
         this.runtime = Truffle.getRuntime();
+    }
+
+    public PcodeOpContext getContext() {
+        return context;
+    }
+
+    public Address parseAddress(String addrString) {
+        return this.getAddrFactory().getAddress(addrString);
     }
 
     @Override
@@ -70,18 +85,13 @@ public class GraalEmulate extends AbstractEmulate {
     }
 
     public void continueExecution(TaskMonitor monitor) throws CancelledException {
+        PcodeOpLanguage.setEmulate(this);
         this.context.setTaskMonitor(monitor);
-        CallTarget target = runtime.createCallTarget(new PcodeOpRootNode(null, getLanguage(), context));
-        target.call();
-    }
-
-    public void run() {
-        CallTarget target = runtime.createCallTarget(new PcodeOpRootNode(null, getLanguage(), context));
-        target.call();
-    }
-
-    public void run(Address entry) {
-        setExecuteAddress(entry);
-        run();
+        this.context.continueExecution();
+        try {
+            Source source = Source.newBuilder(PcodeOpLanguage.ID, "", "<no-name>").build();
+            graalContext.eval(source);
+        } catch (IOException e) {
+        }
     }
 }

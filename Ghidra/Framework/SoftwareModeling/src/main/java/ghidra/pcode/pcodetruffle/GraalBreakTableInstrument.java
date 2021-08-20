@@ -19,29 +19,14 @@ import com.oracle.truffle.api.instrumentation.Instrumenter;
 import com.oracle.truffle.api.instrumentation.TruffleInstrument;
 import com.oracle.truffle.api.instrumentation.TruffleInstrument.Registration;
 
-import ghidra.pcode.emulate.AbstractEmulate;
-import ghidra.pcode.emulate.BreakCallBack;
-import ghidra.pcode.emulate.BreakTable;
-import ghidra.pcode.emulate.BreakTableCallBack;
-import ghidra.program.model.address.Address;
-
-@Registration(id = GraalBreakTableInstrument.ID)
+@Registration(id = GraalBreakTableInstrument.ID, services = { GraalBreakTable.class })
 public class GraalBreakTableInstrument extends TruffleInstrument {
     public static final String ID = "pcode-breaktable";
-
-    private GraalBreakTable breakTable;
 
     @Override
     protected void onCreate(Env env) {
         Instrumenter instrumenter = env.getInstrumenter();
-        this.breakTable = new GraalBreakTable(instrumenter);
-    }
-
-    public void setBreakTable(BreakTable breakTable) {
-        this.breakTable.setBreakTable(breakTable);
-    }
-
-    public void setEmulate(AbstractEmulate emulate) {
-        this.breakTable.setEmulate(emulate);
+        GraalBreakTable breakTable = new GraalBreakTable(instrumenter);
+        env.registerService(breakTable);
     }
 }

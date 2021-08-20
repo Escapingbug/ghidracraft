@@ -22,6 +22,7 @@ import ghidra.pcode.opbehavior.UnaryOpBehavior;
 import ghidra.program.model.pcode.PcodeOp;
 
 public class PcodeOpNodeFactory {
+
     static public PcodeOpNode createNodeFromPcodeOp(PcodeOp op, PcodeOpContext context) {
         OpBehavior behavior = OpBehaviorFactory.getOpBehavior(op.getOpcode());
         if (behavior instanceof BinaryOpBehavior) {

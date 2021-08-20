@@ -28,6 +28,10 @@ import ghidra.pcode.emulate.BreakTable;
 import ghidra.pcode.emulate.EmulateInstructionStateModifier;
 import ghidra.pcode.emulate.UnimplementedCallOtherException;
 import ghidra.pcode.memstate.MemoryState;
+import ghidra.pcode.opbehavior.BinaryOpBehavior;
+import ghidra.pcode.opbehavior.OpBehavior;
+import ghidra.pcode.opbehavior.OpBehaviorFactory;
+import ghidra.pcode.opbehavior.UnaryOpBehavior;
 import ghidra.pcode.pcoderaw.PcodeOpRaw;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressSpace;
@@ -40,7 +44,7 @@ public class PcodeOpRootNode extends RootNode {
     private SleighLanguage lang;
     private PcodeOpLanguage pcodeOpLanguage;
     private MemoryState state;
-    private HashMap<Address, PcodeOpBlockNode> blocks;
+    private HashMap<Address, PcodeOpBlockNode> blocks; // <-- This should be children, but it can't since it is not fixed.
     private PcodeOpContext context;
 
 
@@ -59,6 +63,11 @@ public class PcodeOpRootNode extends RootNode {
         this(pcodeOpLanguage, lang, null);
     }
 
+    @Override
+    public String getName() {
+        return "PcodeOpRootNode";
+    }
+
     private PcodeOpContext getContext() {
         if (context != null) {
             return context;
@@ -67,13 +76,45 @@ public class PcodeOpRootNode extends RootNode {
         }
     }
 
-    private PcodeOpBlockNode newBlockNode(Address blockEntry) {
-        Vector<PcodeOpNode> ops = new Vector<PcodeOpNode>();
-        for (PcodeOp pcode : getContext().emitPcode(blockEntry)) {
-            PcodeOpNode node = PcodeOpNodeFactory.createNodeFromPcodeOp(pcode, getContext());
-            ops.add(node);
+    private boolean isEndOfBlock(PcodeOp[] pcodeOps) {
+        // This works like NOP, so no.
+        if (pcodeOps.length == 0) {
+            return false;
         }
-        return new PcodeOpBlockNode(ops, getContext());
+
+        PcodeOp pcodeOp = pcodeOps[pcodeOps.length - 1];
+        OpBehavior behavior = OpBehaviorFactory.getOpBehavior(pcodeOp.getOpcode());
+        if (behavior instanceof BinaryOpBehavior) {
+            return false;
+        } else if (behavior instanceof UnaryOpBehavior) {
+            return false;
+        } else {
+            switch (pcodeOp.getOpcode()) {
+                case PcodeOp.STORE:
+                case PcodeOp.LOAD:
+                    return false;
+                default:
+                    return true;
+            }
+        }
+    }
+
+    private PcodeOpBlockNode newBlockNode(Address blockEntry) {
+        Address cur = blockEntry;
+        Vector<PcodeOpAsmInstNode> nodes = new Vector<>();
+        while (true) {
+
+            PcodeOp[] ops = getContext().emitPcode(cur);
+            int instructionLength = getContext().getLastEmittedInstructionLength();
+            nodes.add(new PcodeOpAsmInstNode(ops, cur, instructionLength, getContext()));
+
+            // we have a breakpoint, split the block to avoid unpredicted access after breakpoint
+            if (isEndOfBlock(ops) || getContext().getBreaktable().hasAddressBreak(cur)) {
+                return new PcodeOpBlockNode(nodes, getContext());
+            }
+
+            cur = cur.addWrap(instructionLength);
+        }
     }
 
     private void setCurrentAddress(Address addr) {
@@ -178,7 +219,8 @@ public class PcodeOpRootNode extends RootNode {
             }
 
             case PcodeOp.RETURN: {
-                executeReturn(op);
+                //executeReturn(op);
+                executeBranchind(op);
                 break;
             }
 
@@ -202,6 +244,8 @@ public class PcodeOpRootNode extends RootNode {
                 block.execute(frame);
             } catch (PcodeOpBranchException e) {
                 handleBranchException(e);
+            } catch (PcodeOpHaltException e) {
+                return PcodeOpNull.SINGLETON;
             }
         }
     }

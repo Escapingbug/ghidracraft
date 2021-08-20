@@ -159,4 +159,12 @@ public class BreakTableCallBack extends BreakTable {
 		return iter.get().second.addressCallback(addr);
 	}
 
+	@Override
+	public boolean hasAddressBreak(Address addr) {
+		if (addressCallback.find(addr).isEnd()) {
+			return false;
+		}
+		return true;
+	}
+
 }

@@ -57,5 +57,7 @@ public abstract class BreakTable {
   /// \param addr is address to test for breakpoints
   /// \return \b true is the machine instruction has been replaced by a breakpoint
   public abstract boolean doAddressBreak(Address addr);
+
+  public abstract boolean hasAddressBreak(Address addr);
 }
 

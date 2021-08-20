@@ -81,6 +81,7 @@ public abstract class AbstractEmulatorHelper implements MemoryFaultHandler, Emul
 
 	public void initEmulator(AbstractEmulator emulator) {
 		this.emulator = emulator;
+		this.emulatorInited = true;
 	}
 
 	protected AbstractEmulator getEmulator() {
@@ -92,7 +93,9 @@ public abstract class AbstractEmulatorHelper implements MemoryFaultHandler, Emul
 	}
 
 	public void dispose() {
-		getEmulator().dispose();
+		if (emulator != null) {
+			emulator.dispose();
+		}
 		if (memoryWriteTracker != null) {
 			memoryWriteTracker.dispose();
 			memoryWriteTracker = null;

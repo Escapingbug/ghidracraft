@@ -351,40 +351,10 @@ public abstract class AbstractEmulator {
 	 */
 	public abstract void setContextRegisterValue(RegisterValue regValue);
 
+	/**
+	 * @return if we are in instructon decoding phase
+	 */
 	public abstract boolean isInstructionDecoding();
-
-	/*
-	public abstract void executeInstruction(boolean stopAtBreakpoint, TaskMonitor monitor)
-			throws CancelledException, LowlevelError, InstructionDecodeException {
-		isExecuting = true;
-		try {
-			emulator.executeInstruction(stopAtBreakpoint, monitor);
-			instExecuted++;
-		}
-		finally {
-			isExecuting = false;
-		}
-	}*/
-
-	/**
-	 * @return true if halted at a breakpoint
-	 */
-	/*
-	public boolean isAtBreakpoint();
-		return getHalt() && emulator.getExecutionState() == EmulateExecutionState.BREAKPOINT;
-	}
-	*/
-
-	/**
-	 * @return emulator execution state.  This can be useful within a memory fault handler to
-	 * determine if a memory read was associated with instruction parsing (i.e., PCODE_EMIT) or
-	 * normal an actual emulated read (i.e., EXECUTE).
-	 */
-	/*
-	public EmulateExecutionState getEmulateExecutionState() {
-		return emulator.getExecutionState();
-	}
-	*/
 
 	/**
 	 * @return true if emulator is busy executing an instruction

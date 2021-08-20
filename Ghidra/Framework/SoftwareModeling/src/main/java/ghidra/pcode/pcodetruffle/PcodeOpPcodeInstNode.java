@@ -15,49 +15,47 @@
  */
 package ghidra.pcode.pcodetruffle;
 
-import java.util.Vector;
-
 import com.oracle.truffle.api.frame.VirtualFrame;
 import com.oracle.truffle.api.instrumentation.Tag;
-import com.oracle.truffle.api.nodes.BlockNode;
-import com.oracle.truffle.api.nodes.BlockNode.ElementExecutor;
+
 
 import ghidra.program.model.address.Address;
+import ghidra.program.model.pcode.PcodeOp;
 
-public class PcodeOpBlockNode extends PcodeOpNode implements ElementExecutor<PcodeOpAsmInstNode> {
+/**
+ * Common base class for single pcode op instruction.
+ * i.e, represents a single pcodeop node.
+ */
+public abstract class PcodeOpPcodeInstNode extends PcodeOpNode {
 
-    @Child BlockNode<PcodeOpAsmInstNode> ops;
+    protected final PcodeOp pcodeOp;
 
-    public PcodeOpBlockNode(Vector<PcodeOpAsmInstNode> ops, PcodeOpContext context) {
+    public PcodeOpPcodeInstNode(final PcodeOp pcodeOp, PcodeOpContext context) {
         super(context);
-        this.ops = BlockNode.create(ops.toArray(PcodeOpAsmInstNode[]::new), this);
+        this.pcodeOp = pcodeOp;
     }
-
-    public PcodeOpBlockNode(Vector<PcodeOpAsmInstNode> ops) {
-        this(ops, null);
-    }
-
 
     @Override
     public void execute(VirtualFrame frame) {
-        ops.executeVoid(frame, 0);
+        if (getContext().getHalt() == true) {
+            throw new PcodeOpHaltException();
+        }
+
+        doExecute(frame);
     }
+
+    public abstract void doExecute(VirtualFrame frame);
 
     @Override
     public Address getAddress() {
-        return this.ops.getElements()[0].getAddress();
-    }
-    
-    @Override
-    public boolean hasTag(Class<? extends Tag> tag) {
-        if (tag == PcodeOpLanguage.BLOCK) {
-            return true;
-        }
-        return false;
+        return this.pcodeOp.getSeqnum().getTarget();
     }
 
     @Override
-    public void executeVoid(VirtualFrame frame, PcodeOpAsmInstNode node, int index, int argument) {
-        node.execute(frame);
+    public boolean hasTag(Class<? extends Tag> tag) {
+        if (tag == PcodeOpLanguage.STATEMENT) {
+			return true;
+		}
+		return false;
     }
 }

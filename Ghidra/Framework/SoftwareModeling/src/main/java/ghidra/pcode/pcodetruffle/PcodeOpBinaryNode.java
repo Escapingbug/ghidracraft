@@ -18,14 +18,12 @@ package ghidra.pcode.pcodetruffle;
 import java.math.BigInteger;
 
 import com.oracle.truffle.api.frame.VirtualFrame;
-import com.oracle.truffle.api.instrumentation.Tag;
 
 import ghidra.pcode.opbehavior.BinaryOpBehavior;
-import ghidra.program.model.address.Address;
 import ghidra.program.model.pcode.PcodeOp;
 import ghidra.program.model.pcode.Varnode;
 
-public class PcodeOpBinaryNode extends PcodeOpInstNode {
+public class PcodeOpBinaryNode extends PcodeOpPcodeInstNode {
 
     private BinaryOpBehavior behavior;
 
@@ -47,7 +45,7 @@ public class PcodeOpBinaryNode extends PcodeOpInstNode {
     }
 
     @Override
-    public void execute(VirtualFrame frame) {
+    public void doExecute(VirtualFrame frame) {
         Varnode v1 = pcodeOp.getInput(0);
         Varnode v2 = pcodeOp.getInput(1);
         Varnode vOut = pcodeOp.getOutput();
@@ -63,18 +61,5 @@ public class PcodeOpBinaryNode extends PcodeOpInstNode {
             long out = doExecute(vOut.getSize(), v1.getSize(), in1, in2);
             state.setValue(vOut, out);
         }
-    }
-
-    @Override
-    public Address getAddress() {
-        return this.pcodeOp.getSeqnum().getTarget();
-    }
-
-    @Override
-    public boolean hasTag(Class<? extends Tag> tag) {
-        if (tag == PcodeOpLanguage.STATEMENT) {
-            return true;
-        }
-        return false;
     }
 }

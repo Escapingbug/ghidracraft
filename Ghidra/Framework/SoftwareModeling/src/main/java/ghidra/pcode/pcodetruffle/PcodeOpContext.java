@@ -17,22 +17,16 @@ package ghidra.pcode.pcodetruffle;
 
 import java.util.HashMap;
 
-import com.oracle.truffle.api.CallTarget;
-import com.oracle.truffle.api.Truffle;
 import com.oracle.truffle.api.TruffleLanguage;
 
 import ghidra.app.plugin.processors.sleigh.SleighLanguage;
 import ghidra.pcode.emulate.BreakTable;
 import ghidra.pcode.emulate.EmulateInstructionStateModifier;
-import ghidra.pcode.emulate.UnimplementedCallOtherException;
 import ghidra.pcode.memstate.MemoryState;
-import ghidra.pcode.pcoderaw.PcodeOpRaw;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressFactory;
-import ghidra.program.model.address.AddressSpace;
 import ghidra.program.model.lang.Register;
 import ghidra.program.model.pcode.PcodeOp;
-import ghidra.util.task.Task;
 import ghidra.util.task.TaskMonitor;
 
 public class PcodeOpContext {
@@ -48,7 +42,12 @@ public class PcodeOpContext {
 
     private HashMap<Address, PcodeOpBlockNode> blockCache = new HashMap<Address, PcodeOpBlockNode>();
     private Address currentAddress;
+    /**
+     * After breakpoint, the continue should execute next address which recorded here.
+     */
+    private Address continueAddress;
     private boolean halt = false;
+    private boolean atBreakpoint = false;
 
     public PcodeOpContext(GraalEmulate emulate) {
         this(emulate, null);
@@ -83,119 +82,16 @@ public class PcodeOpContext {
         this.monitor = monitor;
     }
 
-    /*
-    private void executeBranch(PcodeOp op) {
-        Address dest = op.getInput(0).getAddress();
-        if (dest.getAddressSpace().isConstantSpace()) {
-            throw new RuntimeException("trying to branch relatively out of block node");
-        } else {
-            setCurrentAddress(dest);
-        }
-    }
-
-    private void doCall(Address targetAddr) {
-        try {
-            setCurrentAddress(targetAddr);
-            CallTarget target = Truffle.getRuntime()
-                    .createCallTarget(new PcodeOpRootNode(
-                        language,
-                        sleighLang,
-                        this));
-
-            target.call();
-        }
-        catch (PcodeOpReturnException returnException) {
-        }
-    }
-
-    private void executeCall(PcodeOp op) {
-        Address targetAddr = op.getInput(0).getAddress();
-        doCall(targetAddr);
-    }
-
-    private void executeCallind(PcodeOp op) {
-        long offset = memoryState.getValue(op.getInput(0));
-		AddressSpace space = op.getSeqnum().getTarget().getAddressSpace();
-        Address targetAddr = space.getTruncatedAddress(offset, true);
-        doCall(targetAddr);
-    }
-
-    private void executeBranchind(PcodeOp op) {
-        long offset = memoryState.getValue(op.getInput(0));
-		AddressSpace space = op.getSeqnum().getTarget().getAddressSpace();
-		setCurrentAddress(space.getTruncatedAddress(offset, true));
-    }
-
-    private void executeReturn(PcodeOp op) {
-        long offset = memoryState.getValue(op.getInput(0));
-		AddressSpace space = op.getSeqnum().getTarget().getAddressSpace();
-		throw new PcodeOpReturnException(space.getTruncatedAddress(offset, true));
-    }
-
-    private void executeCallother(PcodeOp op) {
-        EmulateInstructionStateModifier instructionStateModifier = getInstructionStateModifier();
-        PcodeOpRaw opRaw = new PcodeOpRaw(op);
-        if ((instructionStateModifier == null || !instructionStateModifier.executeCallOther(op)) &&
-            !getBreaktable().doPcodeOpBreak(opRaw)) {
-            int userOp = (int) op.getInput(0).getOffset();
-            String pcodeOpName = sleighLang.getUserDefinedOpName(userOp);
-            throw new UnimplementedCallOtherException(opRaw, pcodeOpName);
-        }
-    }
-
-    public void handleBranchException(PcodeOpBranchException e) {
-        PcodeOp op = e.getOp();
-
-        switch (op.getOpcode()) {
-            case PcodeOp.BRANCH: {
-                executeBranch(op);
-                break;
-            }
-
-            case PcodeOp.CBRANCH: {
-                // only taken branch should throw branch exception
-                executeBranch(op);
-                break;
-            }
-
-            case PcodeOp.BRANCHIND: {
-                executeBranchind(op);
-                break;
-            }
-
-            case PcodeOp.CALL: {
-                executeCall(op);
-                break;
-            }
-
-            case PcodeOp.CALLIND: {
-                executeCallind(op);
-                break;
-            }
-
-            case PcodeOp.CALLOTHER: {
-                executeCallother(op);
-                break;
-            }
-
-            case PcodeOp.RETURN: {
-                executeReturn(op);
-                break;
-            }
-
-            default: {
-                throw new RuntimeException("unknown branch pcode " + op.toString());
-            }
-        }
-    }
-    */
-
     protected SleighLanguage getSleighLanguage() {
         return this.sleighLang;
     }
 
     public PcodeOp[] emitPcode(Address entry) {
         return this.emulate.emitPcode(entry);
+    }
+
+    public int getLastEmittedInstructionLength() {
+        return this.emulate.getLastEmittedInstructionLength();
     }
 
     public EmulateInstructionStateModifier getInstructionStateModifier() {
@@ -226,6 +122,23 @@ public class PcodeOpContext {
         return this.currentAddress;
     }
 
+    public void setContinueAddress(Address contAddress) {
+        this.continueAddress = contAddress;
+    }
+
+    public void continueExecution() {
+        long pc = getMemoryState().getValue(this.sleighLang.getProgramCounter());
+        this.halt = false;
+        if (pc != this.currentAddress.getOffset()) {
+            // breakpoint sets pc
+            this.continueAddress = null;
+            this.currentAddress = this.currentAddress.getNewAddress(pc);
+        } else if (this.continueAddress != null) {
+            setCurrentAddress(this.continueAddress);
+            this.continueAddress = null;
+        }
+    }
+
     public boolean getHalt() {
         return halt;
     }
@@ -240,5 +153,13 @@ public class PcodeOpContext {
 
     public BreakTable getBreaktable() {
         return emulate.getBreaktable();
+    }
+    
+    public void setAtBreakpoint(boolean atBreakpoint) {
+        this.atBreakpoint = atBreakpoint;
+    }
+
+    public boolean isAtBreakpoint() {
+        return atBreakpoint;
     }
 }

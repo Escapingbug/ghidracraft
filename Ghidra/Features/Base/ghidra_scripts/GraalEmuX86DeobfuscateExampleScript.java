@@ -25,10 +25,9 @@
 // to the function "deobfuscate" so that the various return values can be recorded with a comment
 // placed just after the call.
 //@category Examples.Emulation
-import ghidra.app.emulator.EmulatorHelper;
+import ghidra.app.emulator.GraalEmulatorHelper;
 import ghidra.app.script.GhidraScript;
 import ghidra.app.util.opinion.ElfLoader;
-import ghidra.pcode.emulate.EmulateExecutionState;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.listing.Instruction;
 import ghidra.program.model.listing.Program;
@@ -36,11 +35,11 @@ import ghidra.program.model.symbol.*;
 import ghidra.util.Msg;
 import ghidra.util.exception.NotFoundException;
 
-public class EmuX86DeobfuscateExampleScript extends GhidraScript {
+public class GraalEmuX86DeobfuscateExampleScript extends GhidraScript {
 
 	private static String PROGRAM_NAME = "deobExample";
 
-	private EmulatorHelper emuHelper;
+	private GraalEmulatorHelper emuHelper;
 
 	// Important breakpoint locations
 	private Address deobfuscateCall;
@@ -103,7 +102,7 @@ public class EmuX86DeobfuscateExampleScript extends GhidraScript {
 		setPreComment(deobfuscateReturn, null);
 
 		// Establish emulation helper
-		emuHelper = new EmulatorHelper(currentProgram);
+		emuHelper = new GraalEmulatorHelper(currentProgram);
 		try {
 
 			// Initialize stack pointer (not used by this example)
@@ -111,8 +110,6 @@ public class EmuX86DeobfuscateExampleScript extends GhidraScript {
 				(entryInstr.getAddress().getAddressSpace().getMaxAddress().getOffset() >>> 1) -
 					0x7fff;
 			emuHelper.writeRegister(emuHelper.getStackPointerRegister(), stackOffset);
-
-			emuHelper.setBreakpoint(currentProgram.getAddressFactory().getAddress("0x1011b0"));
 
 			// Setup breakpoints
 			emuHelper.setBreakpoint(deobfuscateCall);
@@ -128,7 +125,7 @@ public class EmuX86DeobfuscateExampleScript extends GhidraScript {
 			// Execution loop until return from function or error occurs
 			while (!monitor.isCancelled()) {
 				boolean success =
-					(emuHelper.getEmulateExecutionState() == EmulateExecutionState.BREAKPOINT)
+					(emuHelper.isAtBreakpoint())
 							? emuHelper.run(monitor)
 							: emuHelper.run(mainFunctionEntry, entryInstr, monitor);
 				Address executionAddress = emuHelper.getExecutionAddress();
@@ -141,12 +138,15 @@ public class EmuX86DeobfuscateExampleScript extends GhidraScript {
 					return;
 				}
 				if (!success) {
-					String lastError = emuHelper.getLastError();
-					printerr("Emulation Error: " + lastError);
+					//String lastError = emuHelper.getLastError();
+					//printerr("Emulation Error: " + lastError);
+					printerr("Emulation Error");
 					return;
 				}
 				processBreakpoint(executionAddress);
 			}
+		} catch (Exception e) {
+			e.printStackTrace();
 		}
 		finally {
 			// cleanup resources and release hold on currentProgram

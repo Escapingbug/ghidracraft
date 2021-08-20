@@ -19,6 +19,7 @@ import ghidra.app.plugin.processors.sleigh.SleighLanguage;
 import ghidra.pcode.emulate.BreakTableCallBack;
 import ghidra.pcode.memstate.MemoryState;
 import ghidra.pcode.pcodetruffle.GraalEmulate;
+import ghidra.pcode.pcodetruffle.PcodeOpContext;
 import ghidra.pcode.pcodetruffle.PcodeOpReturnException;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressSpace;
@@ -42,19 +43,9 @@ public class GraalEmulator extends AbstractEmulator {
 		emulate.continueExecution(monitor);
 	}
 
-    public void run(Address entry) {
-        emulate.run(entry);
-    }
-
-    public void call(Address entry) {
-        try {
-            run(entry);
-        } catch (PcodeOpReturnException e) {
-        }
-    }
-
 	@Override
 	public void setHalt(boolean halt) {
+		this.emulate.getContext().setHalt(halt);
 		super.setHalt(halt);
 	}
 
@@ -85,6 +76,10 @@ public class GraalEmulator extends AbstractEmulator {
 	@Override
 	public boolean isInstructionDecoding() {
 		return false;
+	}
+
+	public PcodeOpContext getContext() {
+		return this.emulate.getContext();
 	}
 }
 

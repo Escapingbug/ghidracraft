@@ -75,6 +75,14 @@ public abstract class AbstractEmulate {
 		pseudoDisassembler =
 			Disassembler.getDisassembler(language, getAddrFactory(), TaskMonitor.DUMMY, null);
     }
+
+	/**
+	 * Get the length of last emitted instruction. This should be valid after calling emitPcode
+	 * @return the length of last emitted instruction.
+	 */
+	public int getLastEmittedInstructionLength() {
+		return this.instructionLength;
+	}
     
     /**
 	 * Get length of instruction including any delay-slotted instructions.

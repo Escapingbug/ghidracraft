@@ -15,24 +15,17 @@
  */
 package ghidra.pcode.pcodetruffle;
 
-import com.oracle.truffle.api.frame.VirtualFrame;
+import com.oracle.truffle.api.interop.InteropLibrary;
+import com.oracle.truffle.api.interop.TruffleObject;
+import com.oracle.truffle.api.library.ExportLibrary;
 
-import ghidra.program.model.address.Address;
-import ghidra.program.model.pcode.PcodeOp;
+/**
+ * Just to make Truffle happy
+ */
+@ExportLibrary(InteropLibrary.class)
+public class PcodeOpNull implements TruffleObject {
+    public static final PcodeOpNull SINGLETON = new PcodeOpNull();
 
-public abstract class PcodeOpInstNode extends PcodeOpNode {
-
-    protected final PcodeOp pcodeOp;
-
-    public PcodeOpInstNode(final PcodeOp pcodeOp, PcodeOpContext context) {
-        super(context);
-        this.pcodeOp = pcodeOp;
-    }
-
-    @Override
-    public abstract void execute(VirtualFrame frame);
-
-    @Override
-    public abstract Address getAddress();
-    
+    private PcodeOpNull() {
+    }    
 }
