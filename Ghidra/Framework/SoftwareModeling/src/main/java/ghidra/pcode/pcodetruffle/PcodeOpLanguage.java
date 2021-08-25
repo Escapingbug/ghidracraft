@@ -44,29 +44,13 @@ public class PcodeOpLanguage extends TruffleLanguage<PcodeOpContext> {
     public static final Class<? extends Tag> ASSEMBLY = AssemblyTag.class;
 
     private static GraalEmulate emulate = null;
-    private static PcodeOpContext cachedContext = null;
 
-    // UGLY ALERT! There might be a better way of doing this (attaching a custom object
-    // on the TruffleLanguage implementation). Option is possible to GET the value out
-    // But currently I have no idea how to PUT the value in the <code>Env</code> object
-    // when using Context and Engine.
-    //
-    // This implemetation will not work under multi-threading context. SO DON'T DO THAT!
-    public static void setEmulate(GraalEmulate emulate) {
-        PcodeOpLanguage.emulate = emulate;
+    public static PcodeOpLanguage getCurrentLanguage() {
+        return getCurrentLanguage(PcodeOpLanguage.class);
     }
 
-    // UGLY ALERT! See above (setEmulate).
-    public static PcodeOpContext getCachedContext() {
-        return PcodeOpLanguage.cachedContext;
-    }
-
-    private GraalEmulate getEmulate() {
-        if (emulate != null) {
-            return emulate;
-        } else {
-            throw new IllegalArgumentException("GraalEmulate must be set on the PcodeOpLanguage class before use");
-        }
+    public static PcodeOpContext getCurrentContext() {
+        return getCurrentContext(PcodeOpLanguage.class);
     }
 
     /**
@@ -83,22 +67,6 @@ public class PcodeOpLanguage extends TruffleLanguage<PcodeOpContext> {
 
     @Override
     protected PcodeOpContext createContext(Env env) {
-        PcodeOpLanguage.cachedContext = new PcodeOpContext(this, env, getEmulate());
-        return PcodeOpLanguage.cachedContext;
-    }
-
-    /**
-     * HACK ALERT! The actual "source" is the starting address where we'd like to make
-     * a call target.
-     */
-    @Override
-    protected CallTarget parse(ParsingRequest request) throws Exception {
-        PcodeOpContext context = getCurrentContext(PcodeOpLanguage.class);
-        /*
-        Source source = request.getSource();
-        Address target = getEmulate().parseAddress(source.getCharacters().toString());
-        context.setCurrentAddress(target);
-        */
-        return Truffle.getRuntime().createCallTarget(new PcodeOpRootNode(this, emulate.getLanguage(), context));
+        return new PcodeOpContext(this, env, null);
     }
 }

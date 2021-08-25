@@ -150,6 +150,9 @@ if [ "${MAXMEM}" != "" ]; then
 	VMARG_LIST+=" -Xmx${MAXMEM}"
 fi
 
+VMARG_LIST+=" --add-opens org.graalvm.truffle/com.oracle.truffle.api.instrumentation=ALL-UNNAMED --add-opens org.graalvm.truffle/com.oracle.truffle.api=ALL-UNNAMED --add-opens org.graalvm.truffle/com.oracle.truffle=ALL-UNNAMED --add-opens org.graalvm.truffle/com.oracle.truffle.api.nodes=ALL-UNNAMED"
+VMARG_LIST+=" -Dtruffle.class.path.append=${INSTALL_DIR}/Ghidra/Framework/SoftwareModeling/lib/SoftwareModeling.jar"
+
 BACKGROUND=false
 
 if [ "${MODE}" = "debug" ] || [ "${MODE}" = "debug-suspend" ]; then

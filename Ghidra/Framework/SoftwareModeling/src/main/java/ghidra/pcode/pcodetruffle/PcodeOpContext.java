@@ -32,11 +32,10 @@ import ghidra.util.task.TaskMonitor;
 public class PcodeOpContext {
     private final TruffleLanguage.Env env;
     private final PcodeOpLanguage language;
-    private final AddressFactory addrFactory;
-    private final MemoryState memoryState;
-    private final SleighLanguage sleighLang;
-    private final GraalEmulate emulate;
-    private TaskMonitor monitor;
+    private AddressFactory addrFactory;
+    private MemoryState memoryState;
+    private SleighLanguage sleighLang;
+    private GraalEmulate emulate;
 
     private Register pcRegister;
 
@@ -61,25 +60,24 @@ public class PcodeOpContext {
     public PcodeOpContext(
         final PcodeOpLanguage language,
         final TruffleLanguage.Env env,
-        final GraalEmulate emulate
+        GraalEmulate emulate
     ) {
-        this.monitor = TaskMonitor.DUMMY;
         this.emulate = emulate;
-        this.sleighLang = emulate.getLanguage();
         this.env = env;
         this.language = language;
-        this.addrFactory = sleighLang.getAddressFactory();
+    }
+
+    public void setEmulate(final GraalEmulate emulate) {
+        this.emulate = emulate;
+        this.sleighLang = emulate.getLanguage();
         this.memoryState = emulate.getMemoryState();
+        this.addrFactory = sleighLang.getAddressFactory();
         this.pcRegister = sleighLang.getProgramCounter();
     }
 
     public void setCurrentAddress(Address addr) {
         this.currentAddress = addr;
         memoryState.setValue(pcRegister, currentAddress.getAddressableWordOffset());
-    }
-
-    public void setTaskMonitor(TaskMonitor monitor) {
-        this.monitor = monitor;
     }
 
     protected SleighLanguage getSleighLanguage() {

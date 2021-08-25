@@ -103,13 +103,12 @@ public class PcodeOpRootNode extends RootNode {
         Address cur = blockEntry;
         Vector<PcodeOpAsmInstNode> nodes = new Vector<>();
         while (true) {
-
             PcodeOp[] ops = getContext().emitPcode(cur);
             int instructionLength = getContext().getLastEmittedInstructionLength();
+
             nodes.add(new PcodeOpAsmInstNode(ops, cur, instructionLength, getContext()));
 
-            // we have a breakpoint, split the block to avoid unpredicted access after breakpoint
-            if (isEndOfBlock(ops) || getContext().getBreaktable().hasAddressBreak(cur)) {
+            if (isEndOfBlock(ops)) {
                 return new PcodeOpBlockNode(nodes, getContext());
             }
 

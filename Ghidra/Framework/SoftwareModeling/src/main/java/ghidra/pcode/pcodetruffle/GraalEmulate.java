@@ -18,7 +18,10 @@ package ghidra.pcode.pcodetruffle;
 import java.io.IOException;
 
 import com.oracle.truffle.api.Truffle;
+import com.oracle.truffle.api.TruffleContext;
+import com.oracle.truffle.api.TruffleLanguage;
 import com.oracle.truffle.api.TruffleRuntime;
+import com.oracle.truffle.api.interop.TruffleObject;
 
 import org.graalvm.polyglot.Context;
 import org.graalvm.polyglot.Engine;
@@ -43,16 +46,21 @@ public class GraalEmulate extends AbstractEmulate {
 
     public GraalEmulate(SleighLanguage language, MemoryState memState, BreakTable breakTable) {
         super(language, memState, breakTable);
-        graalContext = Context.newBuilder(PcodeOpLanguage.ID).allowAllAccess(true).build();
-        graalContext.enter();
-        this.engine = graalContext.getEngine();
+        graalContext = Context.newBuilder(PcodeOpLanguage.ID).build();
+        /*
+        // instrument not yet used
         Instrument instrument = engine.getInstruments().get(GraalBreakTableInstrument.ID);
         GraalBreakTable graalBreakTable = instrument.lookup(GraalBreakTable.class);
         graalBreakTable.setBreakTable(breakTable);
         graalBreakTable.setEmulate(this);
-        PcodeOpLanguage.setEmulate(this);
+        */
+        /*
         graalContext.initialize(PcodeOpLanguage.ID);
-        this.context = PcodeOpLanguage.getCachedContext();
+        graalContext.enter();
+        */
+        this.engine = graalContext.getEngine();
+        this.context = new PcodeOpContext(this);
+        //this.context.setEmulate(this);
         this.runtime = Truffle.getRuntime();
     }
 
@@ -85,13 +93,6 @@ public class GraalEmulate extends AbstractEmulate {
     }
 
     public void continueExecution(TaskMonitor monitor) throws CancelledException {
-        PcodeOpLanguage.setEmulate(this);
-        this.context.setTaskMonitor(monitor);
         this.context.continueExecution();
-        try {
-            Source source = Source.newBuilder(PcodeOpLanguage.ID, "", "<no-name>").build();
-            graalContext.eval(source);
-        } catch (IOException e) {
-        }
     }
 }

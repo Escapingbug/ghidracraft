@@ -20,7 +20,6 @@ import ghidra.pcode.emulate.BreakTableCallBack;
 import ghidra.pcode.memstate.MemoryState;
 import ghidra.pcode.pcodetruffle.GraalEmulate;
 import ghidra.pcode.pcodetruffle.PcodeOpContext;
-import ghidra.pcode.pcodetruffle.PcodeOpReturnException;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressSpace;
 import ghidra.program.model.lang.RegisterValue;
