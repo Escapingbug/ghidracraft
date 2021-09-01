@@ -16,6 +16,8 @@
 #include "blockaction.hh"
 #include "funcdata.hh"
 
+#include "ghidracraft/src/bridge/release.rs.h"
+
 /// Retrieve the current edge (as a \e top FlowBlock and the index of the outgoing edge).
 /// If the end-points have been collapsed together, this returns NULL.
 /// The top and bottom nodes of the edge are updated to FlowBlocks in the current collapsed graph.
@@ -2164,9 +2166,12 @@ int4 ActionBlockStructure::apply(Funcdata &data)
   data.installSwitchDefaults();
   graph.buildCopy(data.getBasicBlocks());
 
+  control_flow_structure(graph, data);
+
   CollapseStructure collapse(graph);
   collapse.collapseAll();
   count += collapse.getChangeCount();
+
 
   return 0;
 }

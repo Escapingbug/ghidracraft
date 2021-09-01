@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
-use super::{Patches, new_patches};
+use super::{Patches, new_patches, super::cfs::control_flow_structure};
 
 #[cxx::bridge]
 pub(crate) mod ffi {
@@ -23,6 +23,8 @@ pub(crate) mod ffi {
         unsafe fn new_patches(arch: *mut Architecture) -> Box<Patches>;
         fn add_patch(self: &mut Patches, space: &CxxString, offset: usize, size: i32, payload: &CxxString);
         unsafe fn resolve_patch(self: &Patches, addr: &Address, emit: *mut PcodeEmit) -> i32;
+
+        fn control_flow_structure(graph: Pin<&mut BlockGraph>, fd: Pin<&mut Funcdata>) -> bool;
     }
 
     unsafe extern "C++" {
@@ -53,10 +55,12 @@ pub(crate) mod ffi {
         type Varnode;
 
         type Funcdata;
+        unsafe fn getArch(self: &Funcdata) -> *mut Architecture;
         unsafe fn newOp(self: Pin<&mut Funcdata>, inputs: i32, addr: &Address) -> *mut PcodeOp;
         unsafe fn opInsertBegin(self: Pin<&mut Funcdata>, op: *mut PcodeOp, block: *mut BlockBasic);
         unsafe fn opInsertAfter(self: Pin<&mut Funcdata>, op: *mut PcodeOp, prev: *mut PcodeOp);
         unsafe fn opInsertInput(self: Pin<&mut Funcdata>, op: *mut PcodeOp, varnode: *mut Varnode, slot: i32);
+        unsafe fn opSetOutput(self: Pin<&mut Funcdata>, op: *mut PcodeOp, varnode: *mut Varnode);
         unsafe fn newVarnodeOut(
             self: Pin<&mut Funcdata>,
             size: i32,
@@ -72,6 +76,7 @@ pub(crate) mod ffi {
 
         type Address;
         unsafe fn new_address(space: *mut AddrSpace, off: usize) -> UniquePtr<Address>;
+        fn isInvalid(self: &Address) -> bool;
         fn getSpace(self: &Address) -> *mut AddrSpace;
         fn getOffset(self: &Address) -> usize;
 

@@ -16,13 +16,15 @@
 
 //! Control Flow Structuring implementation based on reccon
 use crate::bridge::ffi::*;
-use cxx::UniquePtr;
+use cxx::let_cxx_string;
+use pcodecraft::OpCode;
 use reccon::{
     ast::{BoolExpr, Expr, Statement},
     graph::{ControlFlowEdge, ControlFlowGraph, NodeIndex},
     reconstruct, RecResult,
 };
-use std::pin::Pin;
+use core::slice::SlicePattern;
+use std::{collections::{HashSet}, pin::Pin};
 use std::{collections::HashMap, ptr::null_mut};
 
 fn cfg_from_graph(graph: &Pin<&mut BlockGraph>) -> (ControlFlowGraph<*mut FlowBlock>, NodeIndex) {
@@ -57,249 +59,79 @@ fn cfg_from_graph(graph: &Pin<&mut BlockGraph>) -> (ControlFlowGraph<*mut FlowBl
     (cfg, *entry)
 }
 
-/// Return value for recursively import
-enum ImportResult {
-    /// we'd like to combine continuous compound statements into one,
-    /// instead of have multiple BlockLists
-    Compound(Vec<*mut FlowBlock>),
-
-    /// Just internal block
-    Block(*mut FlowBlock),
-
-    /// assignment needs to be delayed until its address resolved
-    Assign(Vec<Box<Statement>>),
-}
-
-impl ImportResult {
-    fn is_assign(&self) -> bool {
-        match self {
-            &Self::Assign(_) => true,
-            _ => false,
-        }
-    }
-
-    fn resolved_addr(&self, start: bool) -> Option<UniquePtr<Address>> {
-        match self {
-            Self::Assign(_) => None,
-            Self::Block(block) => {
-                if start {
-                    unsafe { Some(block.as_ref().unwrap().getStartAddress()) }
-                } else {
-                    unsafe { Some(block.as_ref().unwrap().getStopAddress()) }
-                }
-            }
-            Self::Compound(blocks) => {
-                if start {
-                    unsafe { Some(blocks[0].as_ref().unwrap().getStartAddress()) }
-                } else {
-                    unsafe { Some(blocks[blocks.len() - 1].as_ref().unwrap().getStopAddress()) }
-                }
-            }
-        }
-    }
-}
-
-struct ImportStatus<'a> {
-    /// if we are entering looping area, this should be the node index
-    /// of the looping node. When we are breaking or continueing, we
-    /// can use this to know where we are going out
-    looping_node: Option<NodeIndex>,
-
+struct GraphTranslator<'a> {
     cfg: &'a ControlFlowGraph<*mut FlowBlock>,
-    /// The str -> varnode table
-    varnode_map: &'a HashMap<&'a str, *mut Varnode>,
-    /// the ghidra side graph
+    fd: Pin<&'a mut Funcdata>,
     graph: Pin<&'a mut BlockGraph>,
-    func_data: Pin<&'a mut Funcdata>,
-}
-unsafe fn gen_bool_expr(
-    fd: Pin<&mut Funcdata>,
-    tab: &HashMap<&str, *mut Varnode>,
-    block: *mut BlockBasic,
-    bool_expr: BoolExpr,
-) -> *mut Varnode {
-    todo!()
+    vars: HashMap<String, *mut Varnode>,
+    temp_space: *mut AddrSpace,
 }
 
-unsafe fn gen_expr(
-    fd: Pin<&mut Funcdata>,
-    tab: &HashMap<&str, *mut Varnode>,
-    block: *mut BlockBasic,
-    expr: Box<Expr>,
-) -> *mut Varnode {
-    match *expr {
-        Expr::Int(val) => fd.newConstant(8, val as usize),
-        Expr::Bool(bool_expr) => gen_bool_expr(fd, tab, block, bool_expr),
-    }
-}
-
-/// match the statement, returns corresponding block
-///
-/// This is where we perform one step of matching on a stmt.
-/// Recursively, this function matches on the statement.
-/// Once a construct is found, this function will setup
-/// the block and return it.
-///
-/// Example:
-///
-/// ```text
-/// if (a == true && b == false && Original(2)) {
-///   Original(1);
-///   Original(3);
-/// }
-/// ```
-///
-/// In an ast, this would be written like this:
-///
-/// ```yaml
-/// - IfThen
-///   - And
-///     - Eq
-///       var: a
-///       value
-///         - True
-///     - And
-///       - Eq
-///         var: b
-///         value
-///           - False
-///       - Original
-///         index: 2
-///   - Compound
-///     - Original
-///       index: 1
-///     - Original
-///       index: 3
-/// ```
-///
-/// In this case, we first try to find the original block, and
-/// find its corresponding FlowBlock. That is, all that belongs
-/// to original.
-///
-/// Three such blocks are found. Then, we check what is the
-/// parent of such block. For example, one of them is And
-/// statement, the other one is compound.
-///
-/// So, we setup the `compound` block and the `and` block. For
-/// compound block, we setup the BlockList, and for And block,
-/// we setup BlockCondition. We can refer to `blockaction.cc`
-/// to check how this can be done by following `RuleXXX`.
-fn import_recursively(cur_stmt: &Statement, import_status: &mut ImportStatus) -> ImportResult {
-    use reccon::ast::Statement::*;
-
-    let cfg = import_status.cfg;
-
-    fn construct_assign_block(
-        assigns: Vec<Box<Statement>>,
-        address: UniquePtr<Address>,
-        status: &mut ImportStatus,
-    ) -> ImportResult {
-        let new_block = unsafe {
-            status
-                .graph
-                .as_mut()
-                .newBlockBasic(status.func_data.as_mut())
+impl<'a> GraphTranslator<'a> {
+    fn new(
+        cfg: &'a ControlFlowGraph<*mut FlowBlock>,
+        mut fd: Pin<&'a mut Funcdata>,
+        graph: Pin<&'a mut BlockGraph>
+    ) -> Self {
+        let arch = unsafe {
+            fd.as_mut().getArch()
         };
-        for assign in assigns.into_iter() {
-            if let Statement::Assign { var, value } = *assign {
-                let varnode = status.varnode_map.get(var.as_str()).unwrap();
-                todo!("implement assignment -> block");
-            }
+        let addr_manager = unsafe {
+            (*arch).getAddrSpaceManager()
+        };
+        let_cxx_string!(space_name = "ram");
+        let temp_space = addr_manager.getSpaceByName(&space_name);
+        Self {
+            cfg, graph, fd,
+            temp_space,
+            vars: HashMap::new()
         }
+    }
 
-        unsafe { ImportResult::Block(new_block.as_ref().unwrap().asFlowBlock()) }
-    };
+    fn translate_boolexpr(&mut self, expr: Box<BoolExpr>, target_varnode: *mut Varnode) -> *mut BlockBasic {
+        todo!()
+    }
 
-    let extend = |res, blocks: &mut Vec<*mut FlowBlock>| match res {
-        ImportResult::Block(block) => blocks.push(block),
-        ImportResult::Compound(inner_blocks) => blocks.extend(inner_blocks),
-        _ => unreachable!(),
-    };
+    fn translate_expr(&mut self, expr: Box<Expr>, target_varnode: *mut Varnode) -> *mut BlockBasic {
+        todo!()
+    }
 
-    match cur_stmt {
-        Original { node_idx } => ImportResult::Block(*cfg.node_weight(*node_idx).unwrap()),
-        Compound { first, next } => {
-            let first_import = import_recursively(&*first, import_status);
-            let second_import = import_recursively(&*next, import_status);
-
-            if !first_import.is_assign() && !second_import.is_assign() {
-                // no delayed assign, great!
-
-                let mut blocks = vec![];
-                extend(first_import, &mut blocks);
-                extend(second_import, &mut blocks);
-
-                ImportResult::Compound(blocks)
-            } else if first_import.is_assign() && second_import.is_assign() {
-                // both are assigns. Merge them.
-                if let ImportResult::Assign(mut assigns) = first_import {
-                    if let ImportResult::Assign(sec_assigns) = second_import {
-                        assigns.extend(sec_assigns);
-                        ImportResult::Assign(assigns)
-                    } else {
-                        unreachable!()
-                    }
-                } else {
-                    unreachable!()
+    fn translate_stmt(&mut self, stmt: Box<Statement>) -> *mut FlowBlock {
+        match *stmt {
+            Statement::Compound { first, next } => {
+                let first = self.translate_stmt(first);
+                let second = self.translate_stmt(next);
+                unsafe {
+                    self.graph.as_mut().newBlockList(&mut [first, second]) as *mut FlowBlock
                 }
-            } else if let ImportResult::Assign(assigns) = first_import {
-                let resolved_addr = second_import.resolved_addr(true).unwrap();
-                let block = construct_assign_block(assigns, resolved_addr, import_status);
+            },
+            Statement::Original { node_idx } => {
+                *self.cfg.node_weight(node_idx).unwrap()
+            },
+            Statement::Assign { var, value } => {
+                let var_ref = *self.vars.get(&var).unwrap();
+                let value_block = self.translate_expr(value, var_ref);
+                value_block as *mut FlowBlock
+            },
+            Statement::IfThen { cond, body_then } => {
+                let cond_block = self.translate_boolexpr(cond, target_varnode) as *mut FlowBlock;
+                let body = self.translate_stmt(body_then);
 
-                let mut blocks = vec![];
-                extend(block, &mut blocks);
-                extend(second_import, &mut blocks);
-
-                ImportResult::Compound(blocks)
-                // one of them are assigns, resolve the address
-            } else if let ImportResult::Assign(assigns) = second_import {
-                let resolved_addr = first_import.resolved_addr(false).unwrap();
-                let block = construct_assign_block(assigns, resolved_addr, import_status);
-
-                let mut blocks = vec![];
-                extend(block, &mut blocks);
-                extend(first_import, &mut blocks);
-
-                ImportResult::Compound(blocks)
-            } else {
-                unreachable!()
+                unsafe {
+                    self.graph.as_mut().newBlockIf(cond_block, body) as *mut FlowBlock
+                }
+            },
+            Statement::IfThenElse { cond, body_then, body_else } => {
+                todo!()
+                //let cond_block = self.translate_boolexpr(cond, target_varnode) as 8mut F
             }
-        }
-        Assign { .. } => {
-            // assign is delayed until address are resolved.
-            // That is, only if we find a proper address for assignment statement, we
-            // then actually generate the assign block ourselves.
-
-            ImportResult::Assign(vec![Box::new(cur_stmt.clone())])
-        }
-        _ => todo!(),
-    }
-}
-
-fn import_restruct_res(
-    res: RecResult,
-    cfg: ControlFlowGraph<*mut FlowBlock>,
-    mut graph: Pin<&mut BlockGraph>,
-    mut fd: Pin<&mut Funcdata>,
-) {
-    let mut varnode_map = HashMap::new();
-    let new_vars = &res.new_vars;
-
-    for v in new_vars.iter() {
-        unsafe {
-            varnode_map.insert(v.as_str(), fd.as_mut().newUnique(1, null_mut()));
+            _ => {todo!()}
         }
     }
 
-    let mut status = ImportStatus {
-        looping_node: None,
-        cfg: &cfg,
-        varnode_map: &varnode_map,
-        graph,
-        func_data: fd,
-    };
-
-    import_recursively(&res.stmt, &mut status);
+    fn translate(&mut self, res: RecResult) {
+        self.translate_stmt(Box::new(res.stmt));
+    }
 }
 
 pub fn control_flow_structure(graph: Pin<&mut BlockGraph>, fd: Pin<&mut Funcdata>) -> bool {
@@ -308,7 +140,10 @@ pub fn control_flow_structure(graph: Pin<&mut BlockGraph>, fd: Pin<&mut Funcdata
         Some(res) => res,
         None => return false,
     };
-    import_restruct_res(res, cfg, graph, fd);
+
+    println!("reccon result: {}", res.stmt.to_string());
+    let mut translator = GraphTranslator::new(&cfg, fd, graph);
+    translator.translate(res);
 
     true
 }
